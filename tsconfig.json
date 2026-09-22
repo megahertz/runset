@@ -1,0 +1,10 @@
+{
+  "extends": "@megahertz/oxconfig/tsconfig",
+  "compilerOptions": {
+    "allowImportingTsExtensions": true,
+    "lib": ["es2024"],
+    "module": "nodenext",
+    "stripInternal": true
+  },
+  "exclude": ["dist"]
+}

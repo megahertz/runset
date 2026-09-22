@@ -1,0 +1,54 @@
+{
+  "name": "runset",
+  "version": "0.0.0",
+  "description": "A fast, feature-rich task runner for npm scripts — run them in parallel or in sequence, with glob matching and reusable pipelines.",
+  "keywords": [
+    "npm-run-all",
+    "run",
+    "runner",
+    "task",
+    "scripts",
+    "parallel",
+    "sequential",
+    "concurrent",
+    "cli",
+    "orchestrate"
+  ],
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "runset": "dist/index.mjs"
+  },
+  "main": "./dist/index.mjs",
+  "typings": "./dist/index.d.mts",
+  "files": [
+    "dist"
+  ],
+  "repository": "megahertz/runset",
+  "author": "Alexey Prokhorov",
+  "bugs": "https://github.com/megahertz/runset/issues",
+  "homepage": "https://github.com/megahertz/runset#readme",
+  "engines": {
+    "node": ">=24.2"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "check": "npm run typecheck && npm run lint && npm run test",
+    "format": "oxfmt && oxlint --fix",
+    "lint": "oxfmt --check && oxlint",
+    "start": "npm run build && node dist/index.mjs",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "postversion": "git push && git push --tags",
+    "prepack": "npm run check && npm run build"
+  },
+  "devDependencies": {
+    "@megahertz/oxconfig": "^1.0.2",
+    "@types/node": "^26.1.1",
+    "oxfmt": "^0.59.0",
+    "oxlint": "^1.74.0",
+    "tsdown": "^0.23.0",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10"
+  }
+}
