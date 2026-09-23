@@ -9,9 +9,9 @@ CLI flag → config file → built-in default.
 Per-command options are layered separately, by normalization, and there the
 order is:
 
-per-command trailing `::opt` → `commandDictionary` entry → a settings entry
-written earlier in the same list → the list the command sits in → the run-wide
-option → built-in default.
+per-command trailing `::opt` → `scripts` entry → a settings entry written
+earlier in the same list → the list the command sits in → the run-wide option →
+built-in default.
 
 The two lists meet at "the run-wide option": whatever `Config` settled — from a
 flag, from the config file, or from the default — is the floor a command builds
@@ -52,7 +52,7 @@ written in the same place outranks it for its own stream — as `--stdout` does
 over `-o`.
 
 The two axes are independent, and a value that names only one of them says
-nothing about the other. That matters where settings layer: over a dictionary
+nothing about the other. That matters where settings layer: over a `scripts`
 entry's `stdout: './alias.log'`, `alias::stdout=grouped` changes the timing and
 leaves the file alone.
 
@@ -270,13 +270,13 @@ When no package has it, the token resolves as it would without `recursive`.
 ### Pipelines
 
 A run is stages, which says everything except one thing: two sequences running
-side by side. Give each a name — a `commandDictionary` entry may be a whole list
-— and say `parallel` about the name. The flag describes the list, not the
-commands in it, so the order inside each one is left alone:
+side by side. Give each a name — a `scripts` entry may be a whole list — and say
+`parallel` about the name. The flag describes the list, not the commands in it,
+so the order inside each one is left alone:
 
 ```js
 module.exports = {
-  commandDictionary: {
+  scripts: {
     api: ['build:api', 'test:api'],
     web: ['build:web', 'test:web'],
   },
@@ -619,8 +619,8 @@ inside double quotes. A value is quoted the one way each shell has of meaning
 
 Substitution happens in the argument portion of a command and in the values of
 its `::` options. A command's **name** is literal — it is about to be read back
-as a script name, a dictionary key, a glob or a shell command, and four
-different outcomes from one string is not a feature.
+as a script name, a `scripts` key, a glob or a shell command, and four different
+outcomes from one string is not a feature.
 
 ### Positional
 

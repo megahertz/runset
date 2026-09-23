@@ -1,7 +1,7 @@
 {
   "name": "runset",
   "version": "0.0.1",
-  "description": "A fast, feature-rich task runner for npm scripts — run them in parallel or in sequence, with glob matching and reusable pipelines.",
+  "description": "Run npm scripts and shell commands in parallel or sequence, with glob matching, reusable pipelines, colored labels, and grouped output",
   "keywords": [
     "npm-run-all",
     "run",

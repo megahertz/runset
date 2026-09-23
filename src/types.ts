@@ -108,8 +108,6 @@ export type CommandDefinition =
 export interface ConfigJs {
   /** Default: `'auto'`. */
   color?: ColorMode;
-  /** Named commands, resolved before `package.json` scripts. An entry may be a list. */
-  commandDictionary?: Record<string, CommandDefinition | CommandDefinition[]>;
   commands?: CommandDefinition[];
   cwd?: string;
   dryRun?: boolean;
@@ -139,6 +137,8 @@ export interface ConfigJs {
   parallel?: boolean;
   /** The default `recursive` for every command. Default: `false`. */
   recursive?: boolean;
+  /** Named commands, resolved before `package.json` scripts. An entry may be a list. */
+  scripts?: Record<string, CommandDefinition | CommandDefinition[]>;
   /** Print each command before it starts. Default: `false`. */
   showCommand?: boolean;
   /** Print how each command exited, green or red. Default: `false`. */

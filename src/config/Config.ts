@@ -42,7 +42,7 @@ const COLOR_MODES = new Set<ColorMode>([
 
 const KNOWN_KEYS = new Set<keyof ConfigJs>([
   'color',
-  'commandDictionary',
+  'scripts',
   'commands',
   'cwd',
   'dryRun',
@@ -81,10 +81,7 @@ export function createConfig({
 /** The resolved run-wide configuration: CLI flag → config file → default. */
 export class Config {
   readonly commands: CommandDefinition[];
-  readonly commandDictionary: Record<
-    string,
-    CommandDefinition | CommandDefinition[]
-  >;
+  readonly scripts: Record<string, CommandDefinition | CommandDefinition[]>;
   /** Everything after `--`, for placeholders. */
   readonly args: string[];
   readonly cwd: string;
@@ -147,7 +144,7 @@ export class Config {
     this.env = { ...env, ...file.env, ...options.env };
 
     this.commands = [...(file.commands ?? []), ...cli.commands].filter(Boolean);
-    this.commandDictionary = file.commandDictionary ?? {};
+    this.scripts = file.scripts ?? {};
     this.args = cli.positional;
 
     this.jobs = options.jobs ?? file.jobs ?? Number.POSITIVE_INFINITY;
@@ -208,10 +205,10 @@ export class Config {
       this.formatLabel !== undefined && typeof this.formatLabel !== 'function'
         ? 'formatLabel must be a function.'
         : undefined,
-      typeof this.commandDictionary !== 'object' ||
-      this.commandDictionary === null ||
-      Array.isArray(this.commandDictionary)
-        ? 'commandDictionary must be an object.'
+      typeof this.scripts !== 'object' ||
+      this.scripts === null ||
+      Array.isArray(this.scripts)
+        ? 'scripts must be an object.'
         : undefined,
       actionError('onSuccess', this.onSuccess),
       actionError('onFailure', this.onFailure),

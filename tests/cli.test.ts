@@ -245,7 +245,7 @@ describe('[cli] the command-line surface', () => {
       await dir.write(
         'runset.config.json',
         JSON.stringify({
-          commandDictionary: { off: [{ command: 'echo a', disabled: true }] },
+          scripts: { off: [{ command: 'echo a', disabled: true }] },
           commands: ['off', 'echo b'],
         }),
       );
@@ -263,7 +263,7 @@ describe('[cli] the command-line surface', () => {
       await dir.write(
         'runset.config.json',
         JSON.stringify({
-          commandDictionary: { checks: ['echo hi'] },
+          scripts: { checks: ['echo hi'] },
           commands: [
             { command: 'checks', env: { FROM_LIST: 'g' } },
             { command: 'echo bye', env: { FROM_COMMAND: 'c' } },

@@ -50,7 +50,7 @@ type Std = ...; // stream config: timing (realtime|grouped) + destination (stdou
 type ExitAction = 'continue' | 'restart' | 'stop'; // what an exit does to the run
 
 // Loose: what config / CLI produce. Flat — a list is not one of these; the
-// only place a list may appear is `commands` itself, or a dictionary entry.
+// only place a list may appear is `commands` itself, or a `scripts` entry.
 type CommandDefinition =
   | string
   | false | null | undefined                        // for `shouldLint && {...}`
@@ -208,7 +208,7 @@ interface ConfigJs {
   commands?: CommandDefinition[]; // the default pipeline
   // A reusable command, or a whole list of them under one name — the only
   // place a list may appear other than `commands` itself.
-  commandDictionary?: Record<string, CommandDefinition | CommandDefinition[]>;
+  scripts?: Record<string, CommandDefinition | CommandDefinition[]>;
 }
 
 // The module may export the object or a sync function returning it.
@@ -233,7 +233,7 @@ module.exports = {
     { serial: true },
     'test',
   ],
-  commandDictionary: {
+  scripts: {
     build: { command: 'tsc', parallel: true },
   },
 };
@@ -247,7 +247,7 @@ filled, options resolved. Constructed synchronously.
 ```ts
 class Config {
   commands: CommandDefinition[]; // [...file.commands, ...argvCommands], still loose
-  commandDictionary: Record<string, CommandDefinition>;
+  scripts: Record<string, CommandDefinition>;
   args: ParsedArgs; // literal positional arguments after --
   cwd: string; // resolved absolute cwd
   env: NodeJS.ProcessEnv; // the process's, then file `env`, then `--env`
@@ -337,7 +337,7 @@ Run-wide options are resolved by `Config`, with
 later by normalization, which layers:
 
 ```
-per-command trailing `::opt` → commandDictionary entry → settings entry in force → enclosing list → Config option → built-in default
+per-command trailing `::opt` → scripts entry → settings entry in force → enclosing list → Config option → built-in default
 ```
 
 Run-wide-only options (e.g. `jobs`, `killTimeout`) live solely on `Config` and
@@ -355,10 +355,10 @@ silence about the destination for an answer and put it back to `stdout`.
 
 - reads `package.json` scripts (once, from `Config.cwd`);
 - expands glob tokens (`build:*`, `watch:**`) against **package.json scripts**
-  (dictionary keys are exact; a glob only matches a literal glob-keyed dict
-  entry — a rare override);
-- resolves bare names against `commandDictionary` (a dictionary entry overrides
-  a same-named package script);
+  (`scripts` keys are exact; a glob only matches a literal glob-keyed entry — a
+  rare override);
+- resolves bare names against `scripts` (a `scripts` entry overrides a
+  same-named package script);
 - detects each command's `type`;
 - resolves per-command options via the precedence above;
 - folds each settings entry into the defaults the rest of its list inherits;
@@ -371,8 +371,8 @@ silence about the destination for an answer and put it back to `stdout`.
 `{1}`, `{2}`, … select positional arguments, `{@}` quotes each separately, and
 `{*}` joins all into one quoted argument; `{name}` answers with whatever
 `--name` was given. Everything after `--` is literal, and a command's **name**
-is never substituted — it is about to be read back as a script, a dictionary
-key, a glob or a shell command.
+is never substituted — it is about to be read back as a script, a `scripts` key,
+a glob or a shell command.
 
 Two readers, one flag. A command's arguments are read by a shell, so they are
 shell-quoted and an unmatched `{…}` is left as written (`${HOME}` is not a
@@ -407,10 +407,10 @@ the stage it belongs to:
   down: it settles the defaults for the entries after it, and, when it names a
   mode, closes the group in front of it so that what follows starts a new one.
   It runs nothing and takes no stage of its own;
-- a **named list** (a `commandDictionary` entry that is an array) is spliced
-  into the same array as everything else, its own stages shifted onto the one it
-  landed on. Nothing nests — all that survives a list is the stages it occupied,
-  and a list whose every command is `disabled` leaves nothing at all.
+- a **named list** (a `scripts` entry that is an array) is spliced into the same
+  array as everything else, its own stages shifted onto the one it landed on.
+  Nothing nests — all that survives a list is the stages it occupied, and a list
+  whose every command is `disabled` leaves nothing at all.
 
 The commands are then sorted by stage. Two parallel lists lay themselves out
 over the same stages, so the numbers can come back out of order — `a1 a2 b1 b2`
@@ -441,7 +441,7 @@ the name; the flag describes the list, not the commands in it:
 
 ```js
 {
-  commandDictionary: {
+  scripts: {
     api: ['build:api', 'test:api'],
     web: ['build:web', 'test:web'],
   },

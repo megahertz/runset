@@ -18,7 +18,7 @@ what changed shape, and what was dropped.
 | `prefix.test.ts`       | automatic prefixes, labels, colours, `formatLabel`                                                      |
 | `restart.test.ts`      | unlimited restarts, and the ways a run ends one                                                         |
 | `exit.test.ts`         | exit policies, signals and their exit codes, `--kill-timeout`                                           |
-| `config.test.ts`       | `runset.config.*`, `commandDictionary`, library API                                                     |
+| `config.test.ts`       | `runset.config.*`, `scripts`, library API                                                               |
 | `run.test.ts`          | `Run.fromConfigJs` without starting, `cwd` resolution                                                   |
 | `fail.test.ts`         | bad flags, bad config values, failing commands, exit codes                                              |
 | `cli.test.ts`          | help, version, `--cwd`, `--dry-run`, `--log-level`                                                      |

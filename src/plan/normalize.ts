@@ -123,14 +123,14 @@ export function normalize(config: Config, packageInfo: PackageInfo): Command[] {
       inherited.cwd ?? config.cwd,
     );
 
-    if (Object.hasOwn(config.commandDictionary, token.name)) {
+    if (Object.hasOwn(config.scripts, token.name)) {
       if (seen.has(token.name)) {
         throw new NormalizeError(`Command "${token.name}" refers to itself.`);
       }
 
       // The token's `::options` outrank the entry's own.
       const resolved = resolveEntry(
-        config.commandDictionary[token.name],
+        config.scripts[token.name],
         inherited,
         layer(inline, overrides),
         new Set([...seen, token.name]),
@@ -208,7 +208,7 @@ export function normalize(config: Config, packageInfo: PackageInfo): Command[] {
 
     if (Array.isArray(definition)) {
       throw new NormalizeError(
-        'A list of commands belongs in "commands" or in a "commandDictionary" entry, not inside one.',
+        'A list of commands belongs in "commands" or in a "scripts" entry, not inside one.',
       );
     }
 
@@ -229,7 +229,7 @@ export function normalize(config: Config, packageInfo: PackageInfo): Command[] {
   }
 
   /**
-   * `commands`, or a dictionary entry that is a list. The list's own
+   * `commands`, or a `scripts` entry that is a list. The list's own
    * `parallel` places the list as a whole and is not passed to its members.
    */
   function resolveList(

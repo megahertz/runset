@@ -217,7 +217,7 @@ describe('[fail] runset reports failures', () => {
       await using dir = await tempDir();
       const stderr = await commandsOf(dir, ['echo a', ['echo b', 'echo c']]);
 
-      expect(stderr).toMatch(/commandDictionary/);
+      expect(stderr).toMatch(/scripts/);
     });
   });
 

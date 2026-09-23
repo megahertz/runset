@@ -1,10 +1,16 @@
 # runset
 
-Run npm scripts in sequence or in parallel. Based on ideas from
-[`npm-run-all`](https://github.com/mysticatea/npm-run-all), with reusable
-pipelines, colored labels, and grouped output.
+Run npm scripts and shell commands in parallel or sequence, with glob matching,
+reusable pipelines, colored labels, and grouped output. Inspired by
+`npm-run-all`, with more control over execution and output.
 
-Requires Node.js 24.2 or later. No runtime dependencies.
+- **Flexible execution** — mix parallel and sequential steps, with concurrency
+  limits
+- **Readable output** — colored labels, grouped logs, and output redirection
+- **Process control** — stop, continue, or restart on exit, clean up process
+  trees on interruption
+- **Workspace support**
+- **Zero dependencies**
 
 ```sh
 npm install --save-dev runset
@@ -214,21 +220,21 @@ to the commands that follow them.
 The same object may live in a `runset` section of `package.json` instead; a
 `runset.config.*` file in the same directory wins over it.
 
-Use `commandDictionary` to give a command or pipeline a reusable name:
+Use `scripts` to give a command or pipeline a reusable name:
 
 ```ts
 import type { ConfigJs } from 'runset';
 
 export default {
-  commandDictionary: {
+  scripts: {
     check: ['lint', 'test'],
     api: { command: 'node server.js', env: { PORT: '4000' } },
   },
 } satisfies ConfigJs;
 ```
 
-Run these with `npx runset check` or `npx runset api`. Dictionary names take
-priority over npm script names.
+Run these with `npx runset check` or `npx runset api`. Names in `scripts` take
+priority over the same names in `package.json`.
 
 Config files also support `.js`, `.mjs`, `.cjs`, and `.json`. runset looks in
 the working directory and its parents. CLI commands run **after** any `commands`
@@ -248,9 +254,8 @@ Config modules can also export a synchronous function receiving
 `commands` are skipped, so lists can contain conditional commands.
 
 Named pipelines can run together: with `api: ['build:api', 'test:api']` and
-`web: ['build:web', 'test:web']` in `commandDictionary`, `npx runset -p api web`
-runs both builds, then both tests. Both builds must finish before either test
-starts.
+`web: ['build:web', 'test:web']` in `scripts`, `npx runset -p api web` runs both
+builds, then both tests. Both builds must finish before either test starts.
 
 ## Library
 

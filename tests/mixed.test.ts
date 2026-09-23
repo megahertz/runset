@@ -207,7 +207,7 @@ describe('[mixed] a settings entry is `-p`/`-s` written down', () => {
   test('its reach ends with the list it was written in', async () => {
     await using dir = await tempDir();
     const commands = Run.fromConfigJs({
-      commandDictionary: { checks: [{ parallel: true }, 'echo a', 'echo b'] },
+      scripts: { checks: [{ parallel: true }, 'echo a', 'echo b'] },
       commands: ['checks', 'echo c', 'echo d'],
       cwd: dir.path,
     }).processes.map((item) => item.command.stage);

@@ -3,7 +3,7 @@ import { Run, runset } from '../src/index.ts';
 import { run, runWithError } from './helpers/cli.ts';
 import { type Dir, tempDir } from './helpers/tempDir.ts';
 
-describe('[config] runset.config.* and the command dictionary', () => {
+describe('[config] runset.config.* and config scripts', () => {
   describe('loading', () => {
     test('picks up runset.config.json next to package.json', async () => {
       await using dir = await tempDir();
@@ -317,19 +317,19 @@ describe('[config] runset.config.* and the command dictionary', () => {
     });
   });
 
-  describe('commandDictionary', () => {
+  describe('scripts', () => {
     test('resolves a bare name to its entry', async () => {
       await using dir = await tempDir();
       await dir.write(
         'runset.config.json',
         JSON.stringify({
-          commandDictionary: { greet: 'echo hello-from-the-dictionary' },
+          scripts: { greet: 'echo hello-from-config-scripts' },
           commands: ['greet'],
         }),
       );
 
       const { stdout } = await run([], dir.path);
-      expect(stdout).toMatch(/hello-from-the-dictionary/);
+      expect(stdout).toMatch(/hello-from-config-scripts/);
     });
 
     test('an entry overrides a package.json script of the same name', async () => {
@@ -337,7 +337,7 @@ describe('[config] runset.config.* and the command dictionary', () => {
       await dir.write(
         'runset.config.json',
         JSON.stringify({
-          commandDictionary: { 'test-task:append': 'node tasks/append1.mjs z' },
+          scripts: { 'test-task:append': 'node tasks/append1.mjs z' },
           commands: ['test-task:append'],
         }),
       );
@@ -351,7 +351,7 @@ describe('[config] runset.config.* and the command dictionary', () => {
       await dir.write(
         'runset.config.json',
         JSON.stringify({
-          commandDictionary: {
+          scripts: {
             quiet: { command: 'echo hidden', stdout: 'none' },
           },
           commands: ['quiet'],
@@ -367,7 +367,7 @@ describe('[config] runset.config.* and the command dictionary', () => {
       await dir.write(
         'runset.config.json',
         JSON.stringify({
-          commandDictionary: {
+          scripts: {
             quiet: { command: 'echo shown', stdout: 'none' },
           },
           commands: ['quiet::stdout=stdout'],
@@ -383,7 +383,7 @@ describe('[config] runset.config.* and the command dictionary', () => {
       await dir.write(
         'runset.config.json',
         JSON.stringify({
-          commandDictionary: {
+          scripts: {
             checks: [
               'test-task:append a::parallel',
               'test-task:append b::parallel',
@@ -402,7 +402,7 @@ describe('[config] runset.config.* and the command dictionary', () => {
       await dir.write(
         'runset.config.json',
         JSON.stringify({
-          commandDictionary: { dump: 'node tasks/dump.mjs' },
+          scripts: { dump: 'node tasks/dump.mjs' },
           commands: ['dump one two'],
         }),
       );
@@ -419,7 +419,7 @@ describe('[config] runset.config.* and the command dictionary', () => {
       await dir.write(
         'runset.config.json',
         JSON.stringify({
-          commandDictionary: {
+          scripts: {
             alias: { command: 'echo x', stdout: './alias.log' },
           },
         }),
@@ -437,7 +437,7 @@ describe('[config] runset.config.* and the command dictionary', () => {
       await dir.write(
         'runset.config.json',
         JSON.stringify({
-          commandDictionary: {
+          scripts: {
             alias: { command: 'echo x', stdout: 'grouped' },
           },
         }),
@@ -449,12 +449,12 @@ describe('[config] runset.config.* and the command dictionary', () => {
       expect(await dir.read('alias.log')).toMatch(/x/);
     });
 
-    test('an inline file replaces the dictionary file', async () => {
+    test('an inline file replaces the file set in scripts', async () => {
       await using dir = await tempDir();
       await dir.write(
         'runset.config.json',
         JSON.stringify({
-          commandDictionary: {
+          scripts: {
             alias: { command: 'echo x', stdout: './alias.log' },
           },
         }),
@@ -471,7 +471,7 @@ describe('[config] runset.config.* and the command dictionary', () => {
       await dir.write(
         'runset.config.json',
         JSON.stringify({
-          commandDictionary: { loop: 'loop' },
+          scripts: { loop: 'loop' },
           commands: ['loop'],
         }),
       );
@@ -518,7 +518,7 @@ describe('[config] runset.config.* and the command dictionary', () => {
     test('it reaches commands inside a named list', async () => {
       await using dir = await tempDir();
       const runner = Run.fromConfigJs({
-        commandDictionary: { pair: ['echo a', 'echo b'] },
+        scripts: { pair: ['echo a', 'echo b'] },
         commands: ['pair'],
         cwd: dir.path,
         parallel: true,
@@ -597,10 +597,10 @@ describe('[config] runset.config.* and the command dictionary', () => {
       expect(await dir.result()).toBe('bb');
     });
 
-    test('a dictionary may be supplied inline', async () => {
+    test('scripts may be supplied inline', async () => {
       await using dir = await tempDir();
       await runset(['greet'], {
-        commandDictionary: { greet: 'node tasks/append1.mjs g' },
+        scripts: { greet: 'node tasks/append1.mjs g' },
         cwd: dir.path,
       });
 

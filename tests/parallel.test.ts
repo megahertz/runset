@@ -219,7 +219,7 @@ describe('[parallel] runset runs a -p group all at once', () => {
       // Four commands in two named pairs: a budget handed to each pair
       // separately would let all four run, and peak at 4.
       await runset({
-        commandDictionary: {
+        scripts: {
           first: ['test-task:overlap a', 'test-task:overlap b'],
           second: ['test-task:overlap c', 'test-task:overlap d'],
         },
@@ -238,7 +238,7 @@ describe('[parallel] runset runs a -p group all at once', () => {
       // one after the other — a list is not a thing that runs, so it counts
       // for nothing.
       await runset({
-        commandDictionary: {
+        scripts: {
           pair: ['test-task:overlap a', 'test-task:overlap b'],
         },
         commands: ['pair::parallel', 'test-task:overlap c'],

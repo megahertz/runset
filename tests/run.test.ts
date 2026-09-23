@@ -140,7 +140,7 @@ describe('[run] Run.fromConfigJs builds a run without starting it', () => {
     test('and a named list passes its cwd down in turn', async () => {
       await using dir = await tempDir();
       const runner = Run.fromConfigJs({
-        commandDictionary: {
+        scripts: {
           services: [{ command: 'echo x', cwd: 'api' }],
         },
         commands: [{ command: 'services', cwd: 'services' }],
