@@ -15,6 +15,12 @@ reusable pipelines, colored labels, and grouped output. Inspired by
 - **Workspace support**
 - **Zero dependencies**
 
+<p align="center">
+  <img src="docs/screenshot.png" alt="runset output: realtime on the left, grouped on the right">
+  <br>
+  <sub>Realtime output (default) on the left, grouped (<code>-o grouped</code>) on the right</sub>
+</p>
+
 ```sh
 npm install --save-dev runset
 ```
