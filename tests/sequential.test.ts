@@ -175,6 +175,17 @@ describe('[sequential] runset runs commands one after another by default', () =>
     );
   });
 
+  test('should say it once, not again as the run ends', async () => {
+    await using dir = await tempDir();
+    const result = await runCliAndKill('test-task:append2 a', {
+      cwd: dir.path,
+      env,
+      signal: 'SIGTERM',
+    });
+
+    expect(result.stderr).toBe('runset: SIGTERM received, stopping the run\n');
+  });
+
   test('should name SIGTERM too', async () => {
     await using dir = await tempDir();
     const result = await runCliAndKill('test-task:append2 a', {

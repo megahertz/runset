@@ -134,10 +134,13 @@ command to write. Unprefixed output is passed straight through, as before.
 - `--show-command` — print `run <command>` (`run` in blue) before each command
   starts (and before each restart); config: `showCommand: true`
 - `--show-exit-code` — print how each command ended and how long it ran:
-  `✓ 2.1s` in green for a clean exit, `✗ code 1 · 2.1s` (or `✗ SIGTERM · 2.1s`,
-  `✗ stopped · 2.1s`) in red otherwise; config: `showExitCode: true`. The time
-  is the attempt's wall time — `ms` under a second, seconds with one decimal
-  from there up — and the command's name is left to its label
+  `✓ 2.1s` in green for a clean exit; `✗ code 1 · 2.1s  typecheck` (or
+  `✗ SIGTERM · …`) in red for a failure; and `– stopped · 2.1s  typecheck` in
+  yellow for a command runset stopped itself — after a sibling failed, or on
+  Ctrl+C — whatever signal it took to do it. The command is in gray, so a line
+  can be found without its label; config: `showExitCode: true`. The time is the
+  attempt's wall time — `ms` under a second, seconds with one decimal from there
+  up
 
 Both are written into the command's own stdout, so they are labelled like its
 output and follow its `--stdout` setting: a `grouped` command prints its start
@@ -341,6 +344,10 @@ yellow, answering the `^C` on the line the terminal echoed it onto:
 It matters more than it looks: without it the next thing on screen is some
 command's parting words — which read as if they were the reason the run ended
 rather than a consequence of it.
+
+That line is the whole of what runset says about the signal: the run ends
+without repeating it, so a nested runset stopped along with its parent adds one
+line, not two.
 
 An interrupted run is not a run that succeeded, whatever its commands managed
 before the signal reached them. runset exits the way a shell reports a signal —

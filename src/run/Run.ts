@@ -106,9 +106,11 @@ export class Run {
     }
 
     if (stopping?.signal) {
+      // An empty report: the CLI said so when the signal arrived.
       throw new RunsetError(
         `the run was stopped by ${stopping.signal}`,
         signalExitCode(stopping.signal),
+        '',
       );
     }
 

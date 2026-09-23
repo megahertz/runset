@@ -147,16 +147,27 @@ export class Process {
     this.kill(sent);
   }
 
-  /** `✓ 2.1s` when clean; `✗ code 1 · 2.1s` or `✗ SIGTERM · 2.1s` otherwise. */
+  /**
+   * `✓ 2.1s` when clean; `– stopped · 2.1s  typecheck` in yellow when runset
+   * stopped it; otherwise `✗ code 1 · 2.1s  typecheck` in red. The command is
+   * in gray, so it can be found without its label.
+   */
   private exitLine(): string {
+    const { color } = this.context.config;
     const duration = formatDuration(performance.now() - this.attemptStart);
-    const clean = this.exitCode === 0 && this.signal === undefined;
-    const status = clean ? '✓' : `✗ ${this.shortExit()}`;
-    const painted = this.context.config.color
-      ? paint(status, [clean ? 'green' : 'red'])
-      : status;
 
-    return clean ? `${painted} ${duration}` : `${painted} · ${duration}`;
+    if (this.exitCode === 0 && this.signal === undefined && !this.terminated) {
+      return `${color ? paint('✓', ['green']) : '✓'} ${duration}`;
+    }
+
+    // Whatever it died of, runset asked for it: not a failure of its own.
+    const [status, tint] = this.terminated
+      ? ['– stopped', 'yellow']
+      : [`✗ ${this.shortExit()}`, 'red'];
+    const { command } = this.command;
+    return color
+      ? `${paint(status, [tint])} · ${duration}  ${paint(command, ['gray'])}`
+      : `${status} · ${duration}  ${command}`;
   }
 
   /** `code N`, the signal's name, or `stopped`. */

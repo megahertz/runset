@@ -10,7 +10,7 @@ function line(name: string): string {
 
 /** Replaces the duration closing each `--show-exit-code` line with `<t>`. */
 function withoutTimes(output: string): string {
-  return output.replaceAll(/ (\d+ms|\d+\.\ds)$/gm, ' <t>');
+  return output.replaceAll(/ (\d+ms|\d+\.\ds)(?= {2}|$)/gm, ' <t>');
 }
 
 const DELAYED = [
@@ -401,7 +401,7 @@ describe('[output] --show-command / --show-exit-code report each command', () =>
       dir.path,
     );
 
-    expect(withoutTimes(stdout)).toBe('one\n✓ <t>\n✗ code 3 · <t>\n');
+    expect(withoutTimes(stdout)).toBe('one\n✓ <t>\n✗ code 3 · <t>  exit 3\n');
   });
 
   test('--show-command paints "run" blue', async () => {
@@ -421,10 +421,44 @@ describe('[output] --show-command / --show-exit-code report each command', () =>
       dir.path,
     );
 
-    expect(withoutTimes(stdout)).toBe('✗ SIGTERM · <t>\n');
+    expect(withoutTimes(stdout)).toBe('✗ SIGTERM · <t>  kill -TERM $$\n');
   });
 
-  test('--show-exit-code is green for a clean exit, red otherwise', async () => {
+  test('--show-exit-code tells a command runset stopped from a failure', async () => {
+    await using dir = await tempDir();
+    const { stdout } = await runWithError(
+      ['--show-exit-code', '--labels', 'none', '-p', 'exit 2', 'sleep 5'],
+      dir.path,
+    );
+
+    expect(withoutTimes(stdout).split('\n').toSorted()).toEqual([
+      '',
+      '– stopped · <t>  sleep 5',
+      '✗ code 2 · <t>  exit 2',
+    ]);
+  });
+
+  test('--show-exit-code paints a stopped command yellow', async () => {
+    await using dir = await tempDir();
+    const { stdout } = await runWithError(
+      [
+        '--color',
+        '--show-exit-code',
+        '--labels',
+        'none',
+        '-p',
+        'exit 2',
+        'sleep 5',
+      ],
+      dir.path,
+    );
+
+    expect(withoutTimes(stdout)).toContain(
+      '\u001B[33m– stopped\u001B[39m · <t>  \u001B[90msleep 5\u001B[39m\n',
+    );
+  });
+
+  test('--show-exit-code is green for a clean exit, red with the command in gray otherwise', async () => {
     await using dir = await tempDir();
     const { stdout } = await runWithError(
       [
@@ -439,7 +473,9 @@ describe('[output] --show-command / --show-exit-code report each command', () =>
     );
 
     expect(stdout).toContain('\u001B[32m✓\u001B[39m ');
-    expect(stdout).toContain('\u001B[31m✗ code 3\u001B[39m · ');
+    expect(withoutTimes(stdout)).toContain(
+      '\u001B[31m✗ code 3\u001B[39m · <t>  \u001B[90mexit 3\u001B[39m\n',
+    );
   });
 
   test('both carry the command s label', async () => {

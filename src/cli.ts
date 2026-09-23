@@ -87,7 +87,10 @@ export async function main(rawArgv: string[]): Promise<number> {
       throw error;
     }
 
-    process.stderr.write(`runset: ${error.report ?? error.message}\n`);
+    const report = error.report ?? error.message;
+    if (report !== '') {
+      process.stderr.write(`runset: ${report}\n`);
+    }
     return error.exitCode;
   }
 }
