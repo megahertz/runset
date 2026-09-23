@@ -30,6 +30,14 @@ function toOptions(target: CliTarget): CliOptions {
   return typeof target === 'string' ? { cwd: target } : target;
 }
 
+/**
+ * The environment for a task that runset is expected to stop: a delay long
+ * enough that it is still running when the stop arrives, even where starting
+ * a process and killing its tree is as slow as on Windows. Nothing waits it
+ * out, since the task never gets that far.
+ */
+export const OUTLIVES_A_STOP = { RUNSET_TEST_DELAY: '3000' };
+
 /** Whether the suite is running on Windows, for `test.skipIf`. */
 export const isWindows = process.platform === 'win32';
 

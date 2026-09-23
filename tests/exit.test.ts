@@ -2,6 +2,7 @@ import { describe, expect, test } from 'vitest';
 import { runset } from '../src/index.ts';
 import {
   isWindows,
+  OUTLIVES_A_STOP,
   run,
   runCli,
   runCliAndKill,
@@ -23,12 +24,10 @@ describe('[exit] what a command s exit does to the run', () => {
 
     test('a failure stops the run', async () => {
       await using dir = await tempDir();
-      await runWithError(
-        ['-p', 'test-task:error', 'test-task:append2 a'],
-        // Long enough to still be running once the stop arrives, even where
-        // starting a process and killing its tree is as slow as on Windows.
-        { cwd: dir.path, env: { RUNSET_TEST_DELAY: '3000' } },
-      );
+      await runWithError(['-p', 'test-task:error', 'test-task:append2 a'], {
+        cwd: dir.path,
+        env: OUTLIVES_A_STOP,
+      });
 
       expect(await dir.result()).toBeOneOf([undefined, 'a']);
     });
@@ -51,9 +50,7 @@ describe('[exit] what a command s exit does to the run', () => {
       await using dir = await tempDir();
       await run(
         ['--on-success', 'stop', '-p', 'echo done', 'test-task:append2 a'],
-        // Long enough to still be running once the stop arrives, even where
-        // starting a process and killing its tree is as slow as on Windows.
-        { cwd: dir.path, env: { RUNSET_TEST_DELAY: '3000' } },
+        { cwd: dir.path, env: OUTLIVES_A_STOP },
       );
 
       expect(await dir.result()).toBeOneOf([undefined, 'a']);
@@ -86,9 +83,7 @@ describe('[exit] what a command s exit does to the run', () => {
           'test-task:echo loud::on-success=stop',
           'test-task:append2 a',
         ],
-        // Long enough to still be running once the stop arrives, even where
-        // starting a process and killing its tree is as slow as on Windows.
-        { cwd: dir.path, env: { RUNSET_TEST_DELAY: '3000' } },
+        { cwd: dir.path, env: OUTLIVES_A_STOP },
       );
 
       expect(await dir.result()).toBeOneOf([undefined, 'a']);
@@ -131,7 +126,7 @@ describe('[exit] what a command s exit does to the run', () => {
         '-s',
         'test-task:append b',
       ],
-      dir.path,
+      { cwd: dir.path, env: OUTLIVES_A_STOP },
     );
 
     // Neither the command beside it nor the serial step after it gets a turn.

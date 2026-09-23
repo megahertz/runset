@@ -3,6 +3,7 @@ import { Run, runset } from '../src/index.ts';
 import {
   delay,
   isWindows,
+  OUTLIVES_A_STOP,
   run,
   runCliAndKill,
   runWithError,
@@ -65,6 +66,7 @@ describe('[parallel] runset runs a -p group all at once', () => {
       const group = Run.fromConfigJs({
         commands: ['test-task:append2 a', 'test-task:error'],
         cwd: dir.path,
+        env: OUTLIVES_A_STOP,
         parallel: true,
       });
 
@@ -82,12 +84,10 @@ describe('[parallel] runset runs a -p group all at once', () => {
 
     test('CLI', async () => {
       await using dir = await tempDir();
-      await runWithError(
-        ['-p', 'test-task:append2 a', 'test-task:error'],
-        // Long enough to still be running once the stop arrives, even where
-        // starting a process and killing its tree is as slow as on Windows.
-        { cwd: dir.path, env: { RUNSET_TEST_DELAY: '3000' } },
-      );
+      await runWithError(['-p', 'test-task:append2 a', 'test-task:error'], {
+        cwd: dir.path,
+        env: OUTLIVES_A_STOP,
+      });
 
       expect(await dir.result()).toBeOneOf([undefined, 'a']);
     });
@@ -113,13 +113,11 @@ describe('[parallel] runset runs a -p group all at once', () => {
   });
 
   describe('should stop the rest at the first exit with --on-success stop', () => {
-    // Long enough that the second write only lands if nothing killed the task.
-    const env = { RUNSET_TEST_DELAY: '1500' };
-
     test('library API', async () => {
       await using dir = await tempDir();
       const group = await runset(['test-task:append2 a', 'echo done'], {
         cwd: dir.path,
+        env: OUTLIVES_A_STOP,
         onSuccess: 'stop',
         parallel: true,
         stdout: 'none',
@@ -136,7 +134,7 @@ describe('[parallel] runset runs a -p group all at once', () => {
       await using dir = await tempDir();
       await run(
         ['--on-success', 'stop', '-p', 'test-task:append2 a', 'echo done'],
-        { cwd: dir.path, env },
+        { cwd: dir.path, env: OUTLIVES_A_STOP },
       );
 
       expect(await dir.result()).toBeOneOf([undefined, 'a']);
@@ -152,7 +150,7 @@ describe('[parallel] runset runs a -p group all at once', () => {
           'test-task:append2 a',
           'test-task:error',
         ],
-        { cwd: dir.path, env },
+        { cwd: dir.path, env: OUTLIVES_A_STOP },
       );
 
       expect(await dir.result()).toBeOneOf([undefined, 'a']);

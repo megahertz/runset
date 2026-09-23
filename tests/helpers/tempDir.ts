@@ -81,11 +81,15 @@ export class Dir {
     await fsp.rm(this.path, { recursive: true });
   }
 
-  /** Contents of `test.txt`, or `undefined` when no task wrote anything. */
+  /**
+   * Contents of `test.txt`, or `undefined` when no task wrote anything — an
+   * empty file included, which is what a task killed mid-write leaves behind.
+   */
   async result(): Promise<string | undefined> {
-    return (await this.exists(RESULT_FILE))
-      ? this.read(RESULT_FILE)
-      : undefined;
+    const content = (await this.exists(RESULT_FILE))
+      ? await this.read(RESULT_FILE)
+      : '';
+    return content === '' ? undefined : content;
   }
 
   async rm(
