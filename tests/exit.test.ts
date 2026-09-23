@@ -51,7 +51,9 @@ describe('[exit] what a command s exit does to the run', () => {
       await using dir = await tempDir();
       await run(
         ['--on-success', 'stop', '-p', 'echo done', 'test-task:append2 a'],
-        dir.path,
+        // Long enough to still be running once the stop arrives, even where
+        // starting a process and killing its tree is as slow as on Windows.
+        { cwd: dir.path, env: { RUNSET_TEST_DELAY: '3000' } },
       );
 
       expect(await dir.result()).toBeOneOf([undefined, 'a']);
