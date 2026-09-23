@@ -71,7 +71,8 @@ describe('[sequential] runset runs commands one after another by default', () =>
       });
 
       await expect(group.start()).rejects.toMatchObject({
-        message: '1 command failed: "test-task:error"',
+        message:
+          '1 of 3 commands failed, 1 not started: test-task:error exited with code 1',
       });
 
       const { processes } = group;

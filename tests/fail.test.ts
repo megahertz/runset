@@ -5,6 +5,27 @@ import { run, runCli, runWithError } from './helpers/cli.ts';
 import { type Dir, tempDir } from './helpers/tempDir.ts';
 
 describe('[fail] runset reports failures', () => {
+  describe('the summary', () => {
+    test('counts the run and names each failure by its label', async () => {
+      await using dir = await tempDir();
+      const { stderr } = await runWithError(
+        [
+          '-p',
+          'exit 2::label=api',
+          'sleep 5::label=longer',
+          '-s',
+          'echo never',
+        ],
+        dir.path,
+      );
+
+      expect(stderr).toBe(
+        'runset: 1 of 3 commands failed, 1 stopped, 1 not started\n' +
+          '  ✖ [api] exit 2 exited with code 2\n',
+      );
+    });
+  });
+
   describe('invalid options', () => {
     test('an unknown long flag is an error', async () => {
       await using dir = await tempDir();

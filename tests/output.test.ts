@@ -300,3 +300,111 @@ describe('[output] --stdout / --stderr / -o route command output', () => {
     expect(log.split('\n')).toHaveLength(20_001);
   });
 });
+
+describe('[output] --show-command / --show-exit-code report each command', () => {
+  test('--show-command says what starts, before its output', async () => {
+    await using dir = await tempDir();
+    const { stdout } = await run(
+      ['--show-command', 'echo one', 'echo two'],
+      dir.path,
+    );
+
+    expect(stdout).toBe('run echo one\none\nrun echo two\ntwo\n');
+  });
+
+  test('--show-exit-code says how each command exited', async () => {
+    await using dir = await tempDir();
+    const { stdout } = await runWithError(
+      ['--show-exit-code', '--on-failure', 'continue', 'echo one', 'exit 3'],
+      dir.path,
+    );
+
+    expect(stdout).toBe(
+      'one\necho one exited with code 0\nexit 3 exited with code 3\n',
+    );
+  });
+
+  test('--show-command paints "run" blue', async () => {
+    await using dir = await tempDir();
+    const { stdout } = await run(
+      ['--color', '--show-command', 'true'],
+      dir.path,
+    );
+
+    expect(stdout).toBe('\u001B[34mrun\u001B[39m true\n');
+  });
+
+  test('--show-exit-code is green for a clean exit, red otherwise', async () => {
+    await using dir = await tempDir();
+    const { stdout } = await runWithError(
+      [
+        '--color',
+        '--show-exit-code',
+        '--on-failure',
+        'continue',
+        'true',
+        'exit 3',
+      ],
+      dir.path,
+    );
+
+    expect(stdout).toContain('\u001B[32mtrue exited with code 0');
+    expect(stdout).toContain('\u001B[31mexit 3 exited with code 3');
+  });
+
+  test('both carry the command s label', async () => {
+    await using dir = await tempDir();
+    const { stdout } = await run(
+      [
+        '--show-command',
+        '--show-exit-code',
+        '--labels',
+        'all',
+        'echo one::label=a',
+      ],
+      dir.path,
+    );
+
+    expect(stdout).toBe(
+      '[a] run echo one\n[a] one\n[a] echo one exited with code 0\n',
+    );
+  });
+
+  test('both are grouped with the output of a grouped command', async () => {
+    await using dir = await tempDir();
+    const { stdout } = await run(
+      [
+        '-o',
+        'grouped',
+        '--labels',
+        'none',
+        '--show-command',
+        '--show-exit-code',
+        '-p',
+        'test-task:delayed first 500',
+        'test-task:delayed second 100',
+      ],
+      dir.path,
+    );
+
+    const block = (name: string, ms: number): string =>
+      `run test-task:delayed ${name} ${ms}\n${line(name)}\n` +
+      `test-task:delayed ${name} ${ms} exited with code 0\n`;
+    expect(stdout).toBe(block('second', 100) + block('first', 500));
+  });
+
+  test('an unfinished line is ended before the exit code', async () => {
+    await using dir = await tempDir();
+    const { stdout } = await run(['--show-exit-code', 'printf one'], dir.path);
+
+    expect(stdout).toBe('one\nprintf one exited with code 0\n');
+  });
+
+  test('both are off by default', async () => {
+    await using dir = await tempDir();
+    const { stdout, stderr } = await run(['echo one'], dir.path);
+
+    expect(stdout).toBe('one\n');
+    expect(stderr).toBe('');
+  });
+});

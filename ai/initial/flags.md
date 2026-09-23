@@ -122,6 +122,19 @@ A prefixed line is written only once it is whole: a half-written line waits for
 its newline (or for the command to exit) rather than being landed on by the next
 command to write. Unprefixed output is passed straight through, as before.
 
+### Announcing commands
+
+- `--show-command` — print `run <command>` (`run` in blue) before each command
+  starts (and before each restart); config: `showCommand: true`
+- `--show-exit-code` — print how each command ended,
+  `<command> exited with code N` (or `was killed by SIGTERM`), green for a clean
+  exit and red otherwise; config: `showExitCode: true`
+
+Both are written into the command's own stdout, so they are labelled like its
+output and follow its `--stdout` setting: a `grouped` command prints its start
+line, its output and its exit code as one block, and a file destination gets
+them too.
+
 ### A prefix of your own
 
 A JS or TS config file — or a library caller — may render the prefix itself with
@@ -290,6 +303,20 @@ delay between the attempts. Stopping the run is what ends them.
 ```sh
 runset "npm start::on-failure=restart"
 ```
+
+### The summary
+
+A run that fails ends with a count and a row per failed command, labelled and
+colored the way its output was, so it can be found above:
+
+```
+runset: 1 of 5 commands failed, 2 stopped
+  ✖ api typecheck exited with code 2
+```
+
+A library caller gets the same thing on one line, as the `RunsetError`'s
+`message`:
+`1 of 5 commands failed, 2 stopped: typecheck (api) exited with code 2`.
 
 ### Ctrl+C
 

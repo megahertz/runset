@@ -43,6 +43,8 @@ function describeOptions(config: Config): string[] {
       ['stdout', describeStd(config.stdout)],
       ['stderr', describeStd(config.stderr)],
       ['labels', config.labels],
+      ['show-command', String(config.showCommand)],
+      ['show-exit-code', String(config.showExitCode)],
       ['color', String(config.color)],
       ['log-level', config.logLevel],
     ]).map((line) => `  ${line}`),

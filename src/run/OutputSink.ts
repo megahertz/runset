@@ -11,6 +11,8 @@ export class OutputSink {
   /** A prefixed stream's unfinished line, held until its newline. */
   private pending = '';
   private opened: NodeJS.WritableStream | undefined;
+  /** Whether everything written so far ended with a newline. */
+  private atLineStart = true;
 
   private readonly std: Std;
   private readonly prefix: Prefix;
@@ -40,9 +42,11 @@ export class OutputSink {
   }
 
   write(chunk: string): void {
-    if (this.std.destination === 'none') {
+    if (this.std.destination === 'none' || chunk === '') {
       return;
     }
+
+    this.atLineStart = chunk.endsWith('\n');
 
     if (this.std.timing === 'grouped') {
       this.buffered += chunk;
@@ -64,6 +68,11 @@ export class OutputSink {
     const complete = this.pending.slice(0, end + 1);
     this.pending = this.pending.slice(end + 1);
     this.target.write(this.applyPrefix(complete));
+  }
+
+  /** A line of runset's own, on a line of its own: after any unfinished one. */
+  writeLine(text: string): void {
+    this.write(`${this.atLineStart ? '' : '\n'}${text}\n`);
   }
 
   /** Emits what is held back: a `grouped` stream, or a partial line. */

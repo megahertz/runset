@@ -3,10 +3,12 @@ import { parseCli } from '../config/parseCli.ts';
 import { describeRun } from '../plan/describe.ts';
 import { createPlan, type Plan } from '../plan/plan.ts';
 import type { ConfigJs, TerminateOptions } from '../types.ts';
+import { paint } from '../utils/colors.ts';
 import { RunsetError } from '../utils/errors.ts';
 import { signalExitCode } from '../utils/os.ts';
 import { FileRegistry } from './FileRegistry.ts';
 import { Logger } from './Logger.ts';
+import { makePrefix } from './prefix.ts';
 import { Process } from './Process.ts';
 import { schedule } from './schedule.ts';
 
@@ -119,10 +121,9 @@ export class Run {
 
     if (exitCode !== undefined) {
       throw new RunsetError(
-        `${failed.length} command${failed.length === 1 ? '' : 's'} failed: ${failed
-          .map((item) => `"${item.command.command}"`)
-          .join(', ')}`,
+        `${this.tally()}: ${failed.map((process) => describeFailure(process)).join(', ')}`,
         exitCode,
+        this.failureReport(),
       );
     }
 
@@ -131,6 +132,45 @@ export class Run {
 
   terminate(options: TerminateOptions = {}): void {
     this.stopEverything({ reason: 'terminate' }, options);
+  }
+
+  /** `1 of 5 commands failed, 2 stopped, 1 not started`. */
+  private tally(): string {
+    const { processes } = this;
+    const total = processes.length;
+    const stopped = processes.filter(
+      (process) => process.started && process.terminated,
+    ).length;
+    const notStarted = processes.filter((process) => !process.started).length;
+
+    return [
+      `${this.failed().length} of ${total} command${total === 1 ? '' : 's'} failed`,
+      stopped > 0 && `${stopped} stopped`,
+      notStarted > 0 && `${notStarted} not started`,
+    ]
+      .filter(Boolean)
+      .join(', ');
+  }
+
+  /** The tally, then a row per failure, labelled as its output was. */
+  private failureReport(): string {
+    const { color } = this.config;
+    const red = (text: string): string => (color ? paint(text, ['red']) : text);
+
+    const rows = this.failed().map((process) => {
+      const { command } = process;
+      // Not padded: there is no column to line up with here.
+      const label = command.label.trim();
+      const prefix = makePrefix(
+        { ...command, label },
+        color,
+        undefined,
+        'stderr',
+      ) as string;
+      return `  ${red('✖')} ${prefix}${command.command} ${red(process.describeExit())}`;
+    });
+
+    return [this.tally(), ...rows].join('\n');
   }
 
   private failed(): Process[] {
@@ -201,6 +241,18 @@ export class Run {
     clearTimeout(this.stopping.killTimer);
     this.stopping.killTimer = undefined;
   }
+}
+
+/** `typecheck (api) exited with code 2`; the label only where it adds something. */
+function describeFailure(process: Process): string {
+  const { command } = process;
+  const label = command.label.trim();
+  const name =
+    label === '' || label === command.command
+      ? command.command
+      : `${command.command} (${label})`;
+
+  return `${name} ${process.describeExit()}`;
 }
 
 interface StopState {

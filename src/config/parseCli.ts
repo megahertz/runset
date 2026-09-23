@@ -21,6 +21,8 @@ const FLAGS: FlagSpec[] = [
   { name: 'stderr', takesValue: true },
   { name: 'output', short: 'o', takesValue: true },
   { name: 'labels', takesValue: true },
+  { name: 'showCommand', takesValue: false },
+  { name: 'showExitCode', takesValue: false },
   { name: 'help', short: 'h', takesValue: false },
   { name: 'version', short: 'v', takesValue: false },
 ];
@@ -185,6 +187,8 @@ export interface CliOptions {
   onSuccess?: string;
   output?: string;
   recursive?: boolean;
+  showCommand?: boolean;
+  showExitCode?: boolean;
   stderr?: string;
   stdout?: string;
 }

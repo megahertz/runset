@@ -127,6 +127,10 @@ export interface ConfigJs {
   parallel?: boolean;
   /** The default `recursive` for every command. Default: `false`. */
   recursive?: boolean;
+  /** Print each command before it starts. Default: `false`. */
+  showCommand?: boolean;
+  /** Print how each command exited, green or red. Default: `false`. */
+  showExitCode?: boolean;
   stderr?: Partial<Std> | string;
   stdout?: Partial<Std> | string;
 }

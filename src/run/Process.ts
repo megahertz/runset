@@ -1,6 +1,7 @@
 import cp from 'node:child_process';
 import type { Config } from '../config/Config.ts';
 import type { Command, TerminateOptions } from '../types.ts';
+import { paint } from '../utils/colors.ts';
 import type { PackageInfo } from '../utils/fs.ts';
 import { signalExitCode } from '../utils/os.ts';
 import { createEnv } from './env.ts';
@@ -81,12 +82,24 @@ export class Process {
     for (;;) {
       this.started = true;
 
+      if (this.context.config.showCommand) {
+        const run = this.context.config.color ? paint('run', ['blue']) : 'run';
+        this.stdout.writeLine(`${run} ${this.command.command}`);
+      }
+
       // oxlint-disable-next-line no-await-in-loop
       await this.spawn();
+
+      // Before the flush, so a grouped stream holds it with the output.
+      if (this.context.config.showExitCode) {
+        this.stdout.writeLine(this.exitLine());
+      }
       this.stdout.flush();
       this.stderr.flush();
 
-      this.context.logger.debug(`< ${this.command.line} ${this.report()}`);
+      this.context.logger.debug(
+        `< ${this.command.line} ${this.describeExit()}`,
+      );
 
       if (this.terminated) {
         break;
@@ -131,10 +144,26 @@ export class Process {
     this.kill(sent);
   }
 
-  private report(): string {
-    return this.signal === undefined
-      ? `exited with ${this.exitCode ?? 0}`
-      : `was killed by ${this.signal}`;
+  /** `<command> exited with code N`: green when clean, red otherwise. */
+  private exitLine(): string {
+    const text = `${this.command.command} ${this.describeExit()}`;
+    if (!this.context.config.color) {
+      return text;
+    }
+
+    const clean = this.exitCode === 0 && this.signal === undefined;
+    return paint(text, [clean ? 'green' : 'red']);
+  }
+
+  /** `exited with code N`, `was killed by SIGTERM`, or `was stopped`. */
+  describeExit(): string {
+    if (this.signal !== undefined) {
+      return `was killed by ${this.signal}`;
+    }
+    // A command runset stopped may still exit on its own terms.
+    return this.exitCode === undefined
+      ? 'was stopped'
+      : `exited with code ${this.exitCode}`;
   }
 
   /** One attempt: resolves when the child is gone. */

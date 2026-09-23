@@ -30,6 +30,8 @@ Output:
                              destination: stdout | stderr | none | <file path>
       --labels <mode>        label each output line with its command:
                              none | auto | custom | all (default: auto)
+      --show-command         print each command as it starts
+      --show-exit-code       print how each command exited, green or red
 
 General:
   -c, --config <path>        load a config file, skipping the default lookup
@@ -85,7 +87,7 @@ export async function main(rawArgv: string[]): Promise<number> {
       throw error;
     }
 
-    process.stderr.write(`runset: ${error.message}\n`);
+    process.stderr.write(`runset: ${error.report ?? error.message}\n`);
     return error.exitCode;
   }
 }
