@@ -218,7 +218,7 @@ describe('[exit] what a command s exit does to the run', () => {
       },
     );
 
-    test('0 leaves no grace period at all', async () => {
+    test.skipIf(isWindows)('0 leaves no grace period at all', async () => {
       await using dir = await tempDir();
       const started = Date.now();
       await runCliAndKill(['--kill-timeout', '0', 'test-task:stubborn'], {

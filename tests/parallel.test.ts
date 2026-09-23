@@ -281,8 +281,8 @@ describe('[parallel] runset runs a -p group all at once', () => {
       // processes of its own; leaving those behind is how a watcher keeps a port
       // long after the run that started it is over.
       await runCliAndKill('test-task:spawner', {
+        after: 'spawned',
         cwd: dir.path,
-        delay: 400,
         signal: 'SIGINT',
       });
 

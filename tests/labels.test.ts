@@ -318,7 +318,7 @@ describe('[labels] runset tags interleaved output with its command', () => {
       );
 
       const { stdout, stderr } = await run(
-        ['echo one', 'echo two 1>&2'],
+        ['echo one', 'echo two>&2'],
         dir.path,
       );
 
