@@ -33,7 +33,11 @@ export interface Command {
   line: string;
   onFailure: ExitAction;
   onSuccess: ExitAction;
+  /** The workspace package a `recursive` command was expanded into. */
+  packageName?: string;
   parallel: boolean;
+  /** Run an npm script in every workspace package that has it. */
+  recursive: boolean;
   /** The `package.json` script name, when `type` is `'npm'`. */
   scriptName?: string;
   /** Commands sharing a stage run together; stages run in order. */
@@ -58,7 +62,16 @@ export type CommandOptions = {
   stderr?: Partial<Std> | string;
   stdout?: Partial<Std> | string;
 } & Partial<
-  Omit<Command, 'line' | 'scriptName' | 'stage' | 'stderr' | 'stdout' | 'type'>
+  Omit<
+    Command,
+    | 'line'
+    | 'packageName'
+    | 'scriptName'
+    | 'stage'
+    | 'stderr'
+    | 'stdout'
+    | 'type'
+  >
 >;
 
 /** One command written as an object; `command` is what makes it one. */
@@ -112,6 +125,8 @@ export interface ConfigJs {
   onSuccess?: ExitAction;
   /** The default `parallel` for every command. Default: `false`. */
   parallel?: boolean;
+  /** The default `recursive` for every command. Default: `false`. */
+  recursive?: boolean;
   stderr?: Partial<Std> | string;
   stdout?: Partial<Std> | string;
 }

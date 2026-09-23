@@ -113,7 +113,12 @@ export function paletteIndex(label: string): number {
 
 /** The script name, or the program a shell command runs. */
 function nameOf(command: Command): string {
-  return command.scriptName ?? command.command.split(/\s/, 1)[0] ?? '';
+  return (
+    command.packageName ??
+    command.scriptName ??
+    command.command.split(/\s/, 1)[0] ??
+    ''
+  );
 }
 
 /** `serve`, `serve` → `serve#1`, `serve#2`. */

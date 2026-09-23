@@ -6,6 +6,7 @@ import { regroupQuoted } from './winArgv.ts';
 const FLAGS: FlagSpec[] = [
   { name: 'parallel', short: 'p', takesValue: false },
   { name: 'serial', short: 's', takesValue: false },
+  { name: 'recursive', short: 'r', takesValue: false },
   { name: 'jobs', short: 'j', takesValue: true },
   { name: 'killTimeout', takesValue: true },
   { name: 'onSuccess', takesValue: true },
@@ -183,6 +184,7 @@ export interface CliOptions {
   onFailure?: string;
   onSuccess?: string;
   output?: string;
+  recursive?: boolean;
   stderr?: string;
   stdout?: string;
 }

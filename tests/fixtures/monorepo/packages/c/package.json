@@ -1,0 +1,6 @@
+{
+  "name": "pkg-c",
+  "scripts": {
+    "build": "node ../../tasks/append.mjs c"
+  }
+}

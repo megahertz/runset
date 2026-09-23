@@ -36,6 +36,7 @@ function describeOptions(config: Config): string[] {
       ['cwd', config.cwd],
       ['jobs', amount(config.jobs)],
       ['parallel', String(config.parallel)],
+      ['recursive', String(config.recursive)],
       ['on-success', config.onSuccess],
       ['on-failure', config.onFailure],
       ['kill-timeout', `${config.killTimeout}ms`],

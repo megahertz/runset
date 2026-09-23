@@ -14,6 +14,7 @@ Run mode:
   -p, --parallel <commands>  run the following commands together
   -s, --serial <commands>    run the following commands one after another
   -j, --jobs <n>             max commands running at once (default: unlimited)
+  -r, --recursive            run npm scripts in every workspace package having them
 
 On exit:
       --on-success <action>  what a clean exit does   (default: continue)
@@ -45,6 +46,7 @@ Command syntax:
                              "npm start::on-failure=restart"
                              "serve --port 80::label=api,color=cyan"
   "build:*"                  glob over package.json script names
+  "build::recursive"         build in every workspace package that has it
   "serve -- --port {1}"      placeholders drawn from arguments after --
 
 Examples:

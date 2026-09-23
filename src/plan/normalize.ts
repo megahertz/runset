@@ -21,6 +21,7 @@ import { NormalizeError } from '../utils/errors.ts';
 import type { PackageInfo } from '../utils/fs.ts';
 import { isGlob, matchGlob } from '../utils/glob.ts';
 import { toKebabCase } from '../utils/string.ts';
+import { readWorkspacePackages } from '../utils/workspace.ts';
 import { substitutePlaceholders } from './placeholders.ts';
 import { BOUNDARY, EMPTY_SEGMENT, link, type Segment } from './stages.ts';
 import { INLINE_OPTIONS, parseInlineOptions, splitToken } from './token.ts';
@@ -35,10 +36,7 @@ const SETTINGS_OPTIONS = new Set([...INLINE_OPTIONS, 'env', 'serial']);
  */
 export function normalize(config: Config, packageInfo: PackageInfo): Command[] {
   const scriptNames = Object.keys(packageInfo.scripts);
-  const packageRoot =
-    packageInfo.filePath === ''
-      ? config.cwd
-      : path.dirname(packageInfo.filePath);
+  let workspacePackages: PackageInfo[] | undefined;
 
   const defaults: Command = {
     bgColor: '',
@@ -52,6 +50,7 @@ export function normalize(config: Config, packageInfo: PackageInfo): Command[] {
     onFailure: config.onFailure,
     onSuccess: config.onSuccess,
     parallel: config.parallel,
+    recursive: config.recursive,
     stage: 0,
     stderr: config.stderr,
     stdout: config.stdout,
@@ -62,6 +61,7 @@ export function normalize(config: Config, packageInfo: PackageInfo): Command[] {
     token: Token,
     rawOptions: CommandOptions,
     script: string | undefined,
+    pkg = packageInfo,
   ): Command {
     const options = {
       ...rawOptions,
@@ -75,9 +75,7 @@ export function normalize(config: Config, packageInfo: PackageInfo): Command[] {
     const line =
       script === undefined
         ? command
-        : [packageInfo.scripts[script], args]
-            .filter((part) => part !== '')
-            .join(' ');
+        : [pkg.scripts[script], args].filter((part) => part !== '').join(' ');
 
     const leaf: Command = {
       ...defaults,
@@ -87,11 +85,12 @@ export function normalize(config: Config, packageInfo: PackageInfo): Command[] {
       stage: 0,
       type: script === undefined ? 'shell' : 'npm',
       ...(script === undefined ? {} : { scriptName: script }),
+      ...(pkg === packageInfo ? {} : { packageName: packageNameOf(pkg) }),
     };
 
     // Like `npm run`, a script runs from the package root unless given a cwd.
     if (script !== undefined && options.cwd === undefined) {
-      leaf.cwd = packageRoot;
+      leaf.cwd = pkg.filePath === '' ? config.cwd : path.dirname(pkg.filePath);
     }
 
     // Before `disabled` is read: `disabled: 'no'` is refused, not truthy.
@@ -141,6 +140,21 @@ export function normalize(config: Config, packageInfo: PackageInfo): Command[] {
     }
 
     const settled = layer(inherited, inline, overrides);
+
+    if (settled.recursive ?? defaults.recursive) {
+      // Every workspace package that has the script; none is not an error,
+      // the token then resolves as it would without `recursive`.
+      workspacePackages ??= readWorkspacePackages(config.cwd);
+      const leaves = workspacePackages.flatMap((pkg) =>
+        matchScripts(token.name, pkg).map((name) =>
+          makeLeaf({ ...token, name }, settled, name, pkg),
+        ),
+      );
+
+      if (leaves.length > 0) {
+        return toSegment(leaves, settled);
+      }
+    }
 
     if (isGlob(token.name)) {
       return toSegment(
@@ -274,6 +288,19 @@ export function normalize(config: Config, packageInfo: PackageInfo): Command[] {
   return commands;
 }
 
+/** The scripts of `pkg` a token name matches, glob or not. */
+function matchScripts(name: string, pkg: PackageInfo): string[] {
+  const scriptNames = Object.keys(pkg.scripts);
+  if (isGlob(name)) {
+    return matchGlob(name, scriptNames);
+  }
+  return Object.hasOwn(pkg.scripts, name) ? [name] : [];
+}
+
+function packageNameOf(pkg: PackageInfo): string {
+  return pkg.name || path.basename(path.dirname(pkg.filePath));
+}
+
 function isSettingsEntry(
   definition: CommandDefinition,
 ): definition is CommandSettings {
@@ -353,7 +380,7 @@ function validateCommand(command: Command): void {
     ...(['onFailure', 'onSuccess'] as const).map((key) =>
       actionError(where(key), command[key]),
     ),
-    ...(['disabled', 'parallel'] as const).map((key) =>
+    ...(['disabled', 'parallel', 'recursive'] as const).map((key) =>
       booleanError(where(key), command[key]),
     ),
     ...(['bgColor', 'color', 'cwd', 'label'] as const).map((key) =>

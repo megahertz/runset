@@ -200,6 +200,18 @@ module.exports = { commands: ['lint', 'test', 'build'], parallel: true };
 It is a default, not a decree — any command, list, or settings entry that says
 `parallel` for itself overrides it.
 
+### Recursive
+
+- `-r, --recursive` — run npm scripts in every workspace package that has them
+  (`pnpm -r` style); per command: `build::recursive`, config: `recursive: true`
+
+Packages come from `pnpm-workspace.yaml` `packages`, or `package.json`
+`workspaces` (`!` patterns exclude), in the nearest directory at or above
+`--cwd` that has either. The root package is not one of them. A token (name or
+glob) becomes one command per package having a matching script, in path order,
+run from that package and labelled by its name; packages without it are skipped.
+When no package has it, the token resolves as it would without `recursive`.
+
 ### Pipelines
 
 A run is stages, which says everything except one thing: two sequences running

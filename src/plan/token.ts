@@ -5,7 +5,7 @@ import { NormalizeError } from '../utils/errors.ts';
 import { toCamelCase, toKebabCase } from '../utils/string.ts';
 import { substitutePlaceholders } from './placeholders.ts';
 
-const BOOLEAN_OPTIONS = new Set(['disabled', 'parallel']);
+const BOOLEAN_OPTIONS = new Set(['disabled', 'parallel', 'recursive']);
 const ACTION_OPTIONS = new Set(['onFailure', 'onSuccess']);
 
 /** Keys a `::` suffix may set. */

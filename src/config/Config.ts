@@ -44,6 +44,7 @@ const KNOWN_KEYS = new Set<keyof ConfigJs>([
   'onFailure',
   'onSuccess',
   'parallel',
+  'recursive',
   'stderr',
   'stdout',
 ]);
@@ -80,6 +81,7 @@ export class Config {
   readonly onFailure: ExitAction;
   readonly color: boolean;
   readonly parallel: boolean;
+  readonly recursive: boolean;
   readonly labels: LabelMode;
   readonly logLevel: LogLevel;
   readonly dryRun: boolean;
@@ -132,6 +134,7 @@ export class Config {
     this.killTimeout =
       options.killTimeout ?? file.killTimeout ?? DEFAULT_KILL_TIMEOUT;
     this.parallel = file.parallel ?? false;
+    this.recursive = options.recursive ?? file.recursive ?? false;
     this.labels = (options.labels as LabelMode) ?? file.labels ?? 'auto';
     this.onSuccess = (options.onSuccess ??
       file.onSuccess ??
@@ -162,6 +165,7 @@ export class Config {
       numberError('killTimeout', this.killTimeout, 0),
       booleanError('color', this.color),
       booleanError('parallel', this.parallel),
+      booleanError('recursive', this.recursive),
       booleanError('dryRun', this.dryRun),
       oneOfError('labels', this.labels, LABEL_MODES),
       stdError('stdout', this.stdout),

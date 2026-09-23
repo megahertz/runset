@@ -1,0 +1,11 @@
+{
+  "name": "runset-test-monorepo",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "!packages/c"
+  ],
+  "scripts": {
+    "root-only": "node tasks/append.mjs R"
+  }
+}

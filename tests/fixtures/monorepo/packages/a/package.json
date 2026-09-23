@@ -1,0 +1,7 @@
+{
+  "name": "pkg-a",
+  "scripts": {
+    "build": "node ../../tasks/append.mjs a",
+    "test:unit": "node ../../tasks/append.mjs A"
+  }
+}
