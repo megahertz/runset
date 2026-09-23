@@ -245,6 +245,83 @@ describe('[output] --stdout / --stderr / -o route command output', () => {
     });
   });
 
+  describe('output, written in a config', () => {
+    test('groups both streams run-wide, as -o does', async () => {
+      await using dir = await tempDir();
+      await dir.write(
+        'runset.config.json',
+        JSON.stringify({ labels: 'none', output: 'grouped', parallel: true }),
+      );
+
+      const { stdout } = await run(DELAYED, dir.path);
+
+      expect(stdout).toBe(
+        `${line('second')}\n${line('third')}\n${line('first')}\n`,
+      );
+    });
+
+    test('a stream s own setting outranks it', async () => {
+      await using dir = await tempDir();
+      await dir.write(
+        'runset.config.json',
+        JSON.stringify({ output: 'none', stdout: 'stdout' }),
+      );
+
+      const { stdout, stderr } = await run(
+        ['echo to-out', 'echo to-err 1>&2'],
+        dir.path,
+      );
+
+      expect(stdout).toMatch(/to-out/);
+      expect(stderr).not.toMatch(/to-err/);
+    });
+
+    test('a CLI flag outranks it', async () => {
+      await using dir = await tempDir();
+      await dir.write('runset.config.json', JSON.stringify({ output: 'none' }));
+
+      const { stdout } = await run(
+        ['--stdout', 'stdout', 'echo shown'],
+        dir.path,
+      );
+
+      expect(stdout).toMatch(/shown/);
+    });
+
+    test('a command may set it for itself', async () => {
+      await using dir = await tempDir();
+      await dir.write(
+        'runset.config.json',
+        JSON.stringify({
+          commands: [
+            { command: 'echo quiet-object; echo x 1>&2', output: 'none' },
+            'echo quiet-inline::output=none',
+            'echo loud',
+          ],
+        }),
+      );
+
+      const { stdout, stderr } = await run([], dir.path);
+
+      expect(stdout).toBe('loud\n');
+      expect(stderr).toBe('');
+    });
+
+    test('a settings entry passes it to the commands after it', async () => {
+      await using dir = await tempDir();
+      await dir.write(
+        'runset.config.json',
+        JSON.stringify({
+          commands: ['echo before', { output: 'none' }, 'echo after'],
+        }),
+      );
+
+      const { stdout } = await run([], dir.path);
+
+      expect(stdout).toBe('before\n');
+    });
+  });
+
   describe('a file that cannot be written', () => {
     test('ends the run and says so, rather than crashing the host', async () => {
       await using dir = await tempDir();

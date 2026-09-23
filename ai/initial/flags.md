@@ -43,7 +43,13 @@ Redirecting a stream to itself is a no-op. Examples:
 | `none`           | discard                     |
 | `stderr+grouped` | buffer, then emit on stderr |
 
-Per-command: `runset lint::stdout=stderr+grouped`.
+Per-command: `runset lint::stdout=stderr+grouped`, or `lint::output=grouped` for
+both streams.
+
+A config file, a settings entry and an object command take `output` too:
+`{ output: 'grouped' }`. It sets both streams, and a `stdout` or `stderr`
+written in the same place outranks it for its own stream — as `--stdout` does
+over `-o`.
 
 The two axes are independent, and a value that names only one of them says
 nothing about the other. That matters where settings layer: over a dictionary

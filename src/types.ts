@@ -59,6 +59,8 @@ export type LabelFormatter = (context: {
 
 /** The parts of a {@link Command} a user may set by hand. */
 export type CommandOptions = {
+  /** Both streams at once; `stdout` / `stderr` in the same place outrank it. */
+  output?: Partial<Std> | string;
   stderr?: Partial<Std> | string;
   stdout?: Partial<Std> | string;
 } & Partial<
@@ -123,6 +125,8 @@ export interface ConfigJs {
   onFailure?: ExitAction;
   /** What a clean exit does to the run. Default: `'continue'`. */
   onSuccess?: ExitAction;
+  /** Both streams at once; `stdout` / `stderr` outrank it. */
+  output?: Partial<Std> | string;
   /** The default `parallel` for every command. Default: `false`. */
   parallel?: boolean;
   /** The default `recursive` for every command. Default: `false`. */

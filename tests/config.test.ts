@@ -215,6 +215,52 @@ describe('[config] runset.config.* and the command dictionary', () => {
 
       expect(stderr).toMatch(/config blew up/);
     });
+
+    describe('package.json `runset` section', () => {
+      test('is read like runset.config.json', async () => {
+        await using dir = await tempDir();
+        const pkg = JSON.parse(await dir.read('package.json'));
+        await dir.write(
+          'package.json',
+          JSON.stringify({
+            ...pkg,
+            runset: { commands: ['test-task:append a'] },
+          }),
+        );
+
+        await run([], dir.path);
+        expect(await dir.result()).toBe('aa');
+      });
+
+      test('loses to a runset.config.* in the same directory', async () => {
+        await using dir = await tempDir();
+        const pkg = JSON.parse(await dir.read('package.json'));
+        await dir.write(
+          'package.json',
+          JSON.stringify({
+            ...pkg,
+            runset: { commands: ['test-task:append a'] },
+          }),
+        );
+        await dir.write(
+          'runset.config.json',
+          JSON.stringify({ commands: ['test-task:append b'] }),
+        );
+
+        await run([], dir.path);
+        expect(await dir.result()).toBe('bb');
+      });
+
+      test('must be an object', async () => {
+        await using dir = await tempDir();
+        const pkg = JSON.parse(await dir.read('package.json'));
+        await dir.write('package.json', JSON.stringify({ ...pkg, runset: [] }));
+
+        const { stderr } = await runWithError('echo hi', dir.path);
+
+        expect(stderr).toMatch(/"runset" must be an object/);
+      });
+    });
   });
 
   describe('run-wide options', () => {

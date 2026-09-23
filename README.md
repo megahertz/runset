@@ -94,6 +94,9 @@ npx runset -p lint test -o grouped
 
 Each command's output is buffered and printed when it exits.
 
+In a config, write `output: 'grouped'` — for the whole run, or on a single
+command.
+
 ## Config
 
 Save a pipeline in `runset.config.ts`, then run `npx runset`:
@@ -115,6 +118,9 @@ export default {
 
 This runs clean, then lint and test together, then build. Settings entries apply
 to the commands that follow them.
+
+The same object may live in a `runset` section of `package.json` instead; a
+`runset.config.*` file in the same directory wins over it.
 
 Use `commandDictionary` to give a command or pipeline a reusable name:
 

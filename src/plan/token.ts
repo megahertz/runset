@@ -14,6 +14,7 @@ export const INLINE_OPTIONS = new Set([
   'color',
   'cwd',
   'label',
+  'output',
   'stderr',
   'stdout',
   ...BOOLEAN_OPTIONS,
@@ -68,7 +69,7 @@ export function parseInlineOptions(
       );
     }
 
-    if (key === 'stderr' || key === 'stdout') {
+    if (key === 'output' || key === 'stderr' || key === 'stdout') {
       options[key] = parsePartialStd(value);
     } else if (BOOLEAN_OPTIONS.has(key)) {
       // Empty is a placeholder with no argument behind it: `disabled={noTest}`.

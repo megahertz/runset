@@ -199,6 +199,7 @@ interface ConfigJs {
   logLevel?: 'error' | 'warn' | 'info' | 'debug';
   dryRun?: boolean; // print the resolved commands and run nothing
   env?: Record<string, string>; // added to every command's environment
+  output?: Partial<Std> | string; // both streams; stdout / stderr outrank it
   stdout?: Partial<Std> | string;
   stderr?: Partial<Std> | string;
   cwd?: string;
@@ -283,10 +284,11 @@ function createConfig({
 
 1. **Resolve the config source.** If `configJs` is passed (library caller), use
    it. Otherwise find `runset.config.[ts|js|mjs|cjs|json]` starting at `cwd` and
-   **walking up parent directories**, first match wins. `--cwd` sets the
-   starting directory. `-c, --config <path>` skips the lookup entirely; a
-   missing explicit file is a hard error, a missing default file yields an empty
-   config.
+   **walking up parent directories**, first match wins. A `package.json` with a
+   `runset` section (the `runset.config.json` shape) counts as a match too; a
+   `runset.config.*` in the same directory beats it. `--cwd` sets the starting
+   directory. `-c, --config <path>` skips the lookup entirely; a missing
+   explicit file is a hard error, a missing default file yields an empty config.
 
    Parse argv once before loading the file. All flags are built in; tokens after
    `--` are literal task arguments. The parsed `--cwd` and `--config` determine

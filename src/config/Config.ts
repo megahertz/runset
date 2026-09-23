@@ -43,6 +43,7 @@ const KNOWN_KEYS = new Set<keyof ConfigJs>([
   'logLevel',
   'onFailure',
   'onSuccess',
+  'output',
   'parallel',
   'recursive',
   'showCommand',
@@ -153,12 +154,20 @@ export class Config {
     this.color = resolveColor(options.color ?? file.color, env, destinations);
     this.formatLabel = file.formatLabel;
 
-    // A setting may name one axis and leave the other to what it layers onto.
-    const std = (stream: 'stderr' | 'stdout'): Std =>
-      mergeStd(
-        mergeStd(defaultStd(stream), file[stream] ?? options.output),
-        options[stream] ?? options.output,
-      );
+    // A setting may name one axis and leave the other to what it layers onto;
+    // `output` names both streams, and a stream's own setting outranks it.
+    const std = (stream: 'stderr' | 'stdout'): Std => {
+      let result = defaultStd(stream);
+      for (const value of [
+        file.output,
+        file[stream],
+        options.output,
+        options[stream],
+      ]) {
+        result = mergeStd(result, value);
+      }
+      return result;
+    };
     this.stdout = std('stdout');
     this.stderr = std('stderr');
   }

@@ -359,13 +359,19 @@ function readSettings(entry: CommandSettings, base: string): CommandOptions {
 function layer(...bags: CommandOptions[]): CommandOptions {
   const result: CommandOptions = {};
 
-  for (const { stderr, stdout, ...rest } of bags) {
+  for (const { output, stderr, stdout, ...rest } of bags) {
     Object.assign(result, rest);
-    if (stdout !== undefined) {
-      result.stdout = mergeStd(toPartialStd(result.stdout ?? {}), stdout);
-    }
-    if (stderr !== undefined) {
-      result.stderr = mergeStd(toPartialStd(result.stderr ?? {}), stderr);
+    // `output` names both streams; a stream's own setting in the same bag
+    // outranks it.
+    for (const [key, own] of [
+      ['stderr', stderr],
+      ['stdout', stdout],
+    ] as const) {
+      for (const value of [output, own]) {
+        if (value !== undefined) {
+          result[key] = mergeStd(toPartialStd(result[key] ?? {}), value);
+        }
+      }
     }
   }
 
