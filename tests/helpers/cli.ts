@@ -30,6 +30,26 @@ function toOptions(target: CliTarget): CliOptions {
   return typeof target === 'string' ? { cwd: target } : target;
 }
 
+/** Whether the suite is running on Windows, for `test.skipIf`. */
+export const isWindows = process.platform === 'win32';
+
+/**
+ * What the child's streams said, with `cmd.exe`'s CRLF line endings read as
+ * the `\n` every assertion is written against.
+ */
+function toResult(
+  code: null | number,
+  signal: NodeJS.Signals | null,
+  stdout: string,
+  stderr: string,
+): CliResult {
+  return {
+    code: code ?? (signal ? 1 : 0),
+    stderr: stderr.replaceAll('\r\n', '\n'),
+    stdout: stdout.replaceAll('\r\n', '\n'),
+  };
+}
+
 /**
  * Runs `src/index.ts` in a child process and waits for it to exit.
  *
@@ -70,7 +90,7 @@ export function runNode(args: string[], target: CliTarget): Promise<CliResult> {
 
     child.on('error', reject);
     child.on('close', (code, signal) => {
-      resolve({ code: code ?? (signal ? 1 : 0), stderr, stdout });
+      resolve(toResult(code, signal, stdout, stderr));
     });
   });
 }
@@ -145,7 +165,7 @@ export function runCliAndKill(
 
     child.on('error', reject);
     child.on('close', (code, signal) => {
-      resolve({ code: code ?? (signal ? 1 : 0), stderr, stdout });
+      resolve(toResult(code, signal, stdout, stderr));
     });
 
     const kill = (): boolean => child.kill(options.signal ?? 'SIGINT');
@@ -165,16 +185,19 @@ export function runCliAndKill(
 }
 
 /**
- * Like {@link runCliAndKill}, but signals twice.
+ * Like {@link runCliAndKill}, but signals twice, `delay` ms apart.
  *
  * The second one is the impatient Ctrl+C: it says runset should stop waiting
  * for a command that is not answering the first.
  */
 export function runCliAndKillTwice(
   args: CliArgs,
-  target: ({ delay?: number; signal?: NodeJS.Signals } & CliOptions) | string,
+  target:
+    | ({ after?: string; delay?: number; signal?: NodeJS.Signals } & CliOptions)
+    | string,
 ): Promise<CliResult> {
   const options = toOptions(target) as {
+    after?: string;
     delay?: number;
     signal?: NodeJS.Signals;
   } & CliOptions;
@@ -198,12 +221,26 @@ export function runCliAndKillTwice(
 
     child.on('error', reject);
     child.on('close', (code, signal) => {
-      resolve({ code: code ?? (signal ? 1 : 0), stderr, stdout });
+      resolve(toResult(code, signal, stdout, stderr));
     });
 
     const send = (): boolean => child.kill(options.signal ?? 'SIGINT');
-    setTimeout(send, delayMs);
-    setTimeout(send, delayMs * 2);
+    const sendTwice = (): void => {
+      send();
+      setTimeout(send, delayMs);
+    };
+    const { after } = options;
+    if (after === undefined) {
+      setTimeout(sendTwice, delayMs);
+    } else {
+      const onData = (): void => {
+        if (stdout.includes(after)) {
+          child.stdout.off('data', onData);
+          sendTwice();
+        }
+      };
+      child.stdout.on('data', onData);
+    }
   });
 }
 

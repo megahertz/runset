@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import { fileURLToPath } from 'node:url';
 import { main } from './cli.ts';
 import { Run } from './run/Run.ts';
 import type { CommandDefinition, ConfigJs } from './types.ts';
@@ -23,7 +24,9 @@ export async function runset(
 
 export default runset;
 
-if (import.meta.main) {
+// Node 24.2 reports `import.meta.main` as false for a `.ts` entry point, which
+// is how the tests run this file; 24.3 fixed it.
+if (import.meta.main || process.argv[1] === fileURLToPath(import.meta.url)) {
   process.exitCode = await main(process.argv.slice(2));
 }
 

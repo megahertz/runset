@@ -136,10 +136,15 @@ export class OutputSink {
       return text + line;
     }
 
+    // A CRLF line ends in `\r`: it closes the line rather than moving the
+    // cursor, so it is kept aside for the wrap and put back after it.
+    const cr = line.endsWith('\r') ? '\r' : '';
     const width = visibleWidth(text);
-    return wrapLine(line, columns - width, width)
-      .map((piece) => text + piece)
-      .join('\n');
+    return (
+      wrapLine(line.slice(0, line.length - cr.length), columns - width, width)
+        .map((piece) => text + piece)
+        .join('\n') + cr
+    );
   }
 }
 

@@ -8,6 +8,9 @@ export default defineConfig({
     // (and type-stripped) modules instead of redoing it on each start.
     env: {
       NODE_COMPILE_CACHE: path.join(os.tmpdir(), 'runset-tests/compile-cache'),
+      // Node before 24.3 warns that type stripping is experimental, on the
+      // very stderr the tests assert on.
+      NODE_OPTIONS: '--disable-warning=ExperimentalWarning',
     },
     // The suite spawns real shells and waits on real processes.
     hookTimeout: 30_000,

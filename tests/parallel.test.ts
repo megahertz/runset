@@ -1,6 +1,12 @@
 import { describe, expect, test, vi } from 'vitest';
 import { Run, runset } from '../src/index.ts';
-import { delay, run, runCliAndKill, runWithError } from './helpers/cli.ts';
+import {
+  delay,
+  isWindows,
+  run,
+  runCliAndKill,
+  runWithError,
+} from './helpers/cli.ts';
 import { type Dir, tempDir } from './helpers/tempDir.ts';
 
 /** Every interleaving two 'a' and two 'b' writes can produce. */
@@ -78,7 +84,9 @@ describe('[parallel] runset runs a -p group all at once', () => {
       await using dir = await tempDir();
       await runWithError(
         ['-p', 'test-task:append2 a', 'test-task:error'],
-        dir.path,
+        // Long enough to still be running once the stop arrives, even where
+        // starting a process and killing its tree is as slow as on Windows.
+        { cwd: dir.path, env: { RUNSET_TEST_DELAY: '3000' } },
       );
 
       expect(await dir.result()).toBeOneOf([undefined, 'a']);
@@ -265,36 +273,44 @@ describe('[parallel] runset runs a -p group all at once', () => {
     });
   });
 
-  test('a command s own children go down with it', async () => {
-    await using dir = await tempDir();
-    // `shell: true` means every command is a shell that may have started more
-    // processes of its own; leaving those behind is how a watcher keeps a port
-    // long after the run that started it is over.
-    await runCliAndKill('test-task:spawner', {
-      cwd: dir.path,
-      delay: 400,
-      signal: 'SIGINT',
-    });
+  test.skipIf(isWindows)(
+    'a command s own children go down with it',
+    async () => {
+      await using dir = await tempDir();
+      // `shell: true` means every command is a shell that may have started more
+      // processes of its own; leaving those behind is how a watcher keeps a port
+      // long after the run that started it is over.
+      await runCliAndKill('test-task:spawner', {
+        cwd: dir.path,
+        delay: 400,
+        signal: 'SIGINT',
+      });
 
-    const result = (await dir.result()) ?? '';
-    expect(result).toMatch(/^spawned:\d+ $/);
-    // The grandchild would write SURVIVED at 2s; seeing it gone well before
-    // that is the same answer without waiting for it.
-    const pid = Number(result.slice('spawned:'.length));
-    await vi.waitFor(() => expect(isAlive(pid)).toBe(false), { timeout: 1500 });
-  });
+      const result = (await dir.result()) ?? '';
+      expect(result).toMatch(/^spawned:\d+ $/);
+      // The grandchild would write SURVIVED at 2s; seeing it gone well before
+      // that is the same answer without waiting for it.
+      const pid = Number(result.slice('spawned:'.length));
+      await vi.waitFor(() => expect(isAlive(pid)).toBe(false), {
+        timeout: 1500,
+      });
+    },
+  );
 
-  test('should kill running children when runset itself is killed', async () => {
-    await using dir = await tempDir();
-    await runCliAndKill(
-      ['-p', 'test-task:append2 a', 'test-task:append2 b'],
-      // Still running at the kill, done by the time we look had it survived.
-      { cwd: dir.path, env: { RUNSET_TEST_DELAY: '600' } },
-    );
-    await delay(800);
+  test.skipIf(isWindows)(
+    'should kill running children when runset itself is killed',
+    async () => {
+      await using dir = await tempDir();
+      await runCliAndKill(
+        ['-p', 'test-task:append2 a', 'test-task:append2 b'],
+        // Still running at the kill, done by the time we look had it survived.
+        { cwd: dir.path, env: { RUNSET_TEST_DELAY: '600' } },
+      );
+      await delay(800);
 
-    expect(await dir.result()).toBeOneOf([undefined, 'a', 'b', 'ab', 'ba']);
-  });
+      expect(await dir.result()).toBeOneOf([undefined, 'a', 'b', 'ab', 'ba']);
+    },
+  );
 });
 
 /** Whether a process with this pid is still running. */

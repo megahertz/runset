@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import { runset } from '../src/index.ts';
 import {
+  isWindows,
   run,
   runCli,
   runCliAndKill,
@@ -24,7 +25,9 @@ describe('[exit] what a command s exit does to the run', () => {
       await using dir = await tempDir();
       await runWithError(
         ['-p', 'test-task:error', 'test-task:append2 a'],
-        dir.path,
+        // Long enough to still be running once the stop arrives, even where
+        // starting a process and killing its tree is as slow as on Windows.
+        { cwd: dir.path, env: { RUNSET_TEST_DELAY: '3000' } },
       );
 
       expect(await dir.result()).toBeOneOf([undefined, 'a']);
@@ -81,7 +84,9 @@ describe('[exit] what a command s exit does to the run', () => {
           'test-task:echo loud::on-success=stop',
           'test-task:append2 a',
         ],
-        dir.path,
+        // Long enough to still be running once the stop arrives, even where
+        // starting a process and killing its tree is as slow as on Windows.
+        { cwd: dir.path, env: { RUNSET_TEST_DELAY: '3000' } },
       );
 
       expect(await dir.result()).toBeOneOf([undefined, 'a']);
@@ -131,7 +136,7 @@ describe('[exit] what a command s exit does to the run', () => {
     expect(await dir.result()).toBeOneOf([undefined, 'a']);
   });
 
-  describe('a signal aimed at runset', () => {
+  describe.skipIf(isWindows)('a signal aimed at runset', () => {
     test('SIGINT exits 130, the code a shell reports for it', async () => {
       await using dir = await tempDir();
       const { code } = await runCliAndKill('test-task:signal', {
@@ -197,42 +202,48 @@ describe('[exit] what a command s exit does to the run', () => {
   });
 
   describe('--kill-timeout', () => {
-    test('a command that ignores SIGTERM is killed anyway', async () => {
-      await using dir = await tempDir();
-      const started = Date.now();
-      const { code } = await runCliAndKill(
-        ['--kill-timeout', '400', 'test-task:stubborn'],
-        { cwd: dir.path, delay: 300, signal: 'SIGINT' },
-      );
+    test.skipIf(isWindows)(
+      'a command that ignores SIGTERM is killed anyway',
+      async () => {
+        await using dir = await tempDir();
+        const started = Date.now();
+        const { code } = await runCliAndKill(
+          ['--kill-timeout', '400', 'test-task:stubborn'],
+          { after: 'stubborn', cwd: dir.path, signal: 'SIGINT' },
+        );
 
-      // Without the escalation this run would never end.
-      expect(code).toBe(130);
-      expect(Date.now() - started).toBeLessThan(5000);
-    });
+        // Without the escalation this run would never end.
+        expect(code).toBe(130);
+        expect(Date.now() - started).toBeLessThan(5000);
+      },
+    );
 
     test('0 leaves no grace period at all', async () => {
       await using dir = await tempDir();
       const started = Date.now();
       await runCliAndKill(['--kill-timeout', '0', 'test-task:stubborn'], {
+        after: 'stubborn',
         cwd: dir.path,
-        delay: 300,
         signal: 'SIGINT',
       });
 
       expect(Date.now() - started).toBeLessThan(1500);
     });
 
-    test('a second Ctrl+C does not wait for the timeout', async () => {
-      await using dir = await tempDir();
-      const started = Date.now();
-      const { code } = await runCliAndKillTwice(
-        ['--kill-timeout', '30000', 'test-task:stubborn'],
-        { cwd: dir.path, delay: 300, signal: 'SIGINT' },
-      );
+    test.skipIf(isWindows)(
+      'a second Ctrl+C does not wait for the timeout',
+      async () => {
+        await using dir = await tempDir();
+        const started = Date.now();
+        const { code } = await runCliAndKillTwice(
+          ['--kill-timeout', '30000', 'test-task:stubborn'],
+          { after: 'stubborn', cwd: dir.path, delay: 300, signal: 'SIGINT' },
+        );
 
-      expect(code).toBe(130);
-      expect(Date.now() - started).toBeLessThan(5000);
-    });
+        expect(code).toBe(130);
+        expect(Date.now() - started).toBeLessThan(5000);
+      },
+    );
 
     test('a value that is not a number is refused', async () => {
       await using dir = await tempDir();

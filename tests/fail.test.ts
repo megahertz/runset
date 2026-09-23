@@ -1,7 +1,7 @@
 import os from 'node:os';
 import { describe, expect, test } from 'vitest';
 import { runset } from '../src/index.ts';
-import { run, runCli, runWithError } from './helpers/cli.ts';
+import { isWindows, run, runCli, runWithError } from './helpers/cli.ts';
 import { type Dir, tempDir } from './helpers/tempDir.ts';
 
 describe('[fail] runset reports failures', () => {
@@ -271,16 +271,19 @@ describe('[fail] runset reports failures', () => {
       expect(code).toBe(1);
     });
 
-    test('a command killed by a signal is reported as 128 + the signal', async () => {
-      await using dir = await tempDir();
-      // The abort prints a stack trace of its own, and it is the exit code
-      // that is being asked about — so the run throws that output away.
-      await expect(
-        runset('test-task:abort', { cwd: dir.path, stderr: 'none' }),
-      ).rejects.toMatchObject({
-        exitCode: 128 + os.constants.signals.SIGABRT,
-      });
-    });
+    test.skipIf(isWindows)(
+      'a command killed by a signal is reported as 128 + the signal',
+      async () => {
+        await using dir = await tempDir();
+        // The abort prints a stack trace of its own, and it is the exit code
+        // that is being asked about — so the run throws that output away.
+        await expect(
+          runset('test-task:abort', { cwd: dir.path, stderr: 'none' }),
+        ).rejects.toMatchObject({
+          exitCode: 128 + os.constants.signals.SIGABRT,
+        });
+      },
+    );
 
     test('an unknown command name falls through to the shell and fails there', async () => {
       await using dir = await tempDir();
@@ -288,7 +291,8 @@ describe('[fail] runset reports failures', () => {
       // shell command, so an unknown name fails the way the shell fails it.
       const { stderr } = await runWithError('unknown-command-xyz', dir.path);
 
-      expect(stderr).toMatch(/not found/i);
+      // `cmd.exe` says it its own way.
+      expect(stderr).toMatch(/not found|not recognized/i);
     });
 
     test('one unknown command fails the whole run', async () => {
@@ -313,7 +317,8 @@ describe('[fail] runset reports failures', () => {
         noScripts.path,
       );
 
-      expect(stderr).toMatch(/not found/i);
+      // `cmd.exe` reads the `:` as a drive or stream name, and says so.
+      expect(stderr).toMatch(/not found|syntax is incorrect/i);
     });
   });
 });
