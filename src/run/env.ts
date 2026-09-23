@@ -1,6 +1,5 @@
 import path from 'node:path';
-import { ancestors } from '../config/loadConfig.ts';
-import type { PackageInfo } from '../utils/fs.ts';
+import { ancestors, type PackageInfo } from '../utils/fs.ts';
 
 /**
  * The environment a command runs in: every `node_modules/.bin` up from `cwd`
@@ -23,22 +22,40 @@ export function createEnv({
   const binDirs = ancestors(cwd).map((dir) =>
     path.join(dir, 'node_modules', '.bin'),
   );
-  const env: NodeJS.ProcessEnv = {
-    ...base,
-    [pathKey]: [...binDirs, base[pathKey]].filter(Boolean).join(path.delimiter),
-  };
-
+  const own: Record<string, string> = {};
   if (packageInfo.name !== '') {
-    env.npm_package_name = packageInfo.name;
+    own.npm_package_name = packageInfo.name;
   }
   if (packageInfo.version !== '') {
-    env.npm_package_version = packageInfo.version;
+    own.npm_package_version = packageInfo.version;
   }
-
   if (scriptName !== undefined) {
-    env.npm_lifecycle_event = scriptName;
-    env.npm_lifecycle_script = packageInfo.scripts[scriptName] ?? '';
+    own.npm_lifecycle_event = scriptName;
+    own.npm_lifecycle_script = packageInfo.scripts[scriptName] ?? '';
   }
 
-  return env;
+  return {
+    ...withoutSpellingsOf(base, Object.keys(own)),
+    ...own,
+    [pathKey]: [...binDirs, base[pathKey]].filter(Boolean).join(path.delimiter),
+  };
+}
+
+/**
+ * Windows names are case-insensitive, and of two spellings a child is given
+ * the one that sorts first — an outer npm's `NPM_…` over ours — so on Windows
+ * every other spelling of a name about to be set is dropped.
+ */
+function withoutSpellingsOf(
+  env: NodeJS.ProcessEnv,
+  names: string[],
+): NodeJS.ProcessEnv {
+  if (process.platform !== 'win32') {
+    return env;
+  }
+
+  const replaced = new Set(names.map((name) => name.toUpperCase()));
+  return Object.fromEntries(
+    Object.entries(env).filter(([key]) => !replaced.has(key.toUpperCase())),
+  );
 }

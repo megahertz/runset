@@ -5,8 +5,8 @@ import { NormalizeError } from '../utils/errors.ts';
 import { toCamelCase, toKebabCase } from '../utils/string.ts';
 import { substitutePlaceholders } from './placeholders.ts';
 
-const BOOLEAN_OPTIONS = new Set(['disabled', 'parallel', 'recursive']);
-const ACTION_OPTIONS = new Set(['onFailure', 'onSuccess']);
+export const BOOLEAN_OPTIONS = ['disabled', 'parallel', 'recursive'] as const;
+export const ACTION_OPTIONS = ['onFailure', 'onSuccess'] as const;
 
 /** Keys a `::` suffix may set. */
 export const INLINE_OPTIONS = new Set([
@@ -71,10 +71,10 @@ export function parseInlineOptions(
 
     if (key === 'output' || key === 'stderr' || key === 'stdout') {
       options[key] = parsePartialStd(value);
-    } else if (BOOLEAN_OPTIONS.has(key)) {
+    } else if ((BOOLEAN_OPTIONS as readonly string[]).includes(key)) {
       // Empty is a placeholder with no argument behind it: `disabled={noTest}`.
       options[key] = value !== 'false' && value !== '';
-    } else if (ACTION_OPTIONS.has(key)) {
+    } else if ((ACTION_OPTIONS as readonly string[]).includes(key)) {
       check(actionError(`"${toKebabCase(key)}"`, value), NormalizeError);
       options[key] = value as ExitAction;
     } else {

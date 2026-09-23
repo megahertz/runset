@@ -1,7 +1,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { ancestors } from '../config/loadConfig.ts';
-import { type PackageInfo, readPackageJson } from './fs.ts';
+import {
+  ancestors,
+  type PackageInfo,
+  readJson,
+  readPackageJson,
+} from './fs.ts';
 
 /**
  * The packages of the workspace at or above `cwd`, from `pnpm-workspace.yaml`
@@ -36,12 +40,7 @@ function readWorkspacePatterns(dir: string): string[] | undefined {
     return parsePnpmPackages(fs.readFileSync(yamlPath, 'utf8'));
   }
 
-  const jsonPath = path.join(dir, 'package.json');
-  if (!fs.existsSync(jsonPath)) {
-    return undefined;
-  }
-
-  const { workspaces } = JSON.parse(fs.readFileSync(jsonPath, 'utf8')) as {
+  const { workspaces } = (readJson(path.join(dir, 'package.json')) ?? {}) as {
     workspaces?: { packages?: string[] } | string[];
   };
 

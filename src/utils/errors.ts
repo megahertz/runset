@@ -3,7 +3,10 @@
 /** Any failure runset reports itself; `exitCode` is what the CLI exits with. */
 export class RunsetError extends Error {
   readonly exitCode: number;
-  /** What the CLI prints in place of `message`; empty when it already said so. */
+  /**
+   * What the CLI prints in place of `message`; empty when it already said so.
+   * @internal
+   */
   readonly report: string | undefined;
 
   constructor(message: string, exitCode = 1, report?: string) {

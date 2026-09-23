@@ -1,4 +1,10 @@
-import type { CommandDefinition } from '../types.ts';
+import type {
+  ColorMode,
+  CommandDefinition,
+  ExitAction,
+  LabelMode,
+  LogLevel,
+} from '../types.ts';
 import { CliError } from '../utils/errors.ts';
 import { toCamelCase } from '../utils/string.ts';
 import { regroupQuoted } from './winArgv.ts';
@@ -37,10 +43,9 @@ export function parseCli(rawArgv: string[]): ParsedCli {
   const argv = regroupQuoted(rawArgv);
   const options: CliOptions = {};
   const commands: CommandDefinition[] = [];
-  const positional: string[] = [];
+  let positional: string[] = [];
   let help = false;
   let version = false;
-  let afterDoubleDash = false;
   let cursor = 0;
 
   function setOption(spec: FlagSpec, raw: boolean | string): void {
@@ -73,11 +78,8 @@ export function parseCli(rawArgv: string[]): ParsedCli {
         break;
       }
       default: {
-        if (typeof raw === 'boolean') {
-          (options[spec.name] as boolean) = raw;
-        } else {
-          (options[spec.name] as string) = raw;
-        }
+        // A bad value is `Config.validate`'s to refuse.
+        (options[spec.name] as boolean | string) = raw;
       }
     }
   }
@@ -141,11 +143,12 @@ export function parseCli(rawArgv: string[]): ParsedCli {
   for (; cursor < argv.length; cursor += 1) {
     const token = argv[cursor] as string;
 
-    if (afterDoubleDash) {
-      positional.push(token);
-    } else if (token === '--') {
-      afterDoubleDash = true;
-    } else if (token.startsWith('--') && token.length > 2) {
+    if (token === '--') {
+      positional = argv.slice(cursor + 1);
+      break;
+    }
+
+    if (token.startsWith('--') && token.length > 2) {
       readLong(token.slice(2));
     } else if (token.startsWith('-') && token.length > 1) {
       readShortCluster(token.slice(1));
@@ -175,17 +178,17 @@ function findShortFlag(letter: string): FlagSpec | undefined {
 
 /** Run-wide options a CLI flag can set. */
 export interface CliOptions {
-  color?: string;
+  color?: ColorMode;
   config?: string;
   cwd?: string;
   dryRun?: boolean;
   env?: Record<string, string>;
   jobs?: number;
   killTimeout?: number;
-  labels?: string;
-  logLevel?: string;
-  onFailure?: string;
-  onSuccess?: string;
+  labels?: LabelMode;
+  logLevel?: LogLevel;
+  onFailure?: ExitAction;
+  onSuccess?: ExitAction;
   output?: string;
   recursive?: boolean;
   showCommand?: boolean;

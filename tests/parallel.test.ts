@@ -1,15 +1,16 @@
 import { describe, expect, test, vi } from 'vitest';
 import { Run, runset } from '../src/index.ts';
-import { delay, run, runCliAndKill, runWithError } from './helpers/cli.ts';
+import {
+  delay,
+  OUTLIVES_A_STOP,
+  run,
+  runCliAndKill,
+  runWithError,
+} from './helpers/cli.ts';
 import { type Dir, tempDir } from './helpers/tempDir.ts';
 
 /** Every interleaving two 'a' and two 'b' writes can produce. */
 const INTERLEAVED_AB = ['abab', 'abba', 'baab', 'baba'];
-
-// The tasks' writes only interleave if the second task starts before the first
-// one's delay is over, and with the whole suite running at once a start can
-// lag well past the default 150ms.
-vi.stubEnv('RUNSET_TEST_DELAY', '500');
 
 describe('[parallel] runset runs a -p group all at once', () => {
   describe('should run commands in parallel', () => {
@@ -59,6 +60,7 @@ describe('[parallel] runset runs a -p group all at once', () => {
       const group = Run.fromConfigJs({
         commands: ['test-task:append2 a', 'test-task:error'],
         cwd: dir.path,
+        env: OUTLIVES_A_STOP,
         parallel: true,
       });
 
@@ -76,10 +78,10 @@ describe('[parallel] runset runs a -p group all at once', () => {
 
     test('CLI', async () => {
       await using dir = await tempDir();
-      await runWithError(
-        ['-p', 'test-task:append2 a', 'test-task:error'],
-        dir.path,
-      );
+      await runWithError(['-p', 'test-task:append2 a', 'test-task:error'], {
+        cwd: dir.path,
+        env: OUTLIVES_A_STOP,
+      });
 
       expect(await dir.result()).toBeOneOf([undefined, 'a']);
     });
@@ -105,13 +107,11 @@ describe('[parallel] runset runs a -p group all at once', () => {
   });
 
   describe('should stop the rest at the first exit with --on-success stop', () => {
-    // Long enough that the second write only lands if nothing killed the task.
-    const env = { RUNSET_TEST_DELAY: '1500' };
-
     test('library API', async () => {
       await using dir = await tempDir();
       const group = await runset(['test-task:append2 a', 'echo done'], {
         cwd: dir.path,
+        env: OUTLIVES_A_STOP,
         onSuccess: 'stop',
         parallel: true,
         stdout: 'none',
@@ -128,7 +128,7 @@ describe('[parallel] runset runs a -p group all at once', () => {
       await using dir = await tempDir();
       await run(
         ['--on-success', 'stop', '-p', 'test-task:append2 a', 'echo done'],
-        { cwd: dir.path, env },
+        { cwd: dir.path, env: OUTLIVES_A_STOP },
       );
 
       expect(await dir.result()).toBeOneOf([undefined, 'a']);
@@ -144,7 +144,7 @@ describe('[parallel] runset runs a -p group all at once', () => {
           'test-task:append2 a',
           'test-task:error',
         ],
-        { cwd: dir.path, env },
+        { cwd: dir.path, env: OUTLIVES_A_STOP },
       );
 
       expect(await dir.result()).toBeOneOf([undefined, 'a']);
@@ -266,13 +266,19 @@ describe('[parallel] runset runs a -p group all at once', () => {
   });
 
   test('a command s own children go down with it', async () => {
+    if (process.platform === 'win32') {
+      // Windows cannot signal another process: a SIGINT or SIGTERM sent to
+      // runset ends it outright, before it can pass anything on.
+      return;
+    }
+
     await using dir = await tempDir();
     // `shell: true` means every command is a shell that may have started more
     // processes of its own; leaving those behind is how a watcher keeps a port
     // long after the run that started it is over.
     await runCliAndKill('test-task:spawner', {
+      after: 'spawned',
       cwd: dir.path,
-      delay: 400,
       signal: 'SIGINT',
     });
 
@@ -281,10 +287,18 @@ describe('[parallel] runset runs a -p group all at once', () => {
     // The grandchild would write SURVIVED at 2s; seeing it gone well before
     // that is the same answer without waiting for it.
     const pid = Number(result.slice('spawned:'.length));
-    await vi.waitFor(() => expect(isAlive(pid)).toBe(false), { timeout: 1500 });
+    await vi.waitFor(() => expect(isAlive(pid)).toBe(false), {
+      timeout: 1500,
+    });
   });
 
   test('should kill running children when runset itself is killed', async () => {
+    if (process.platform === 'win32') {
+      // Windows cannot signal another process: a SIGINT or SIGTERM sent to
+      // runset ends it outright, before it can pass anything on.
+      return;
+    }
+
     await using dir = await tempDir();
     await runCliAndKill(
       ['-p', 'test-task:append2 a', 'test-task:append2 b'],

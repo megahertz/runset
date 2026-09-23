@@ -31,7 +31,7 @@ export function prefixWidth(command: Command, color: boolean): number {
 }
 
 /** A colored block with color; `[label]` without. */
-function defaultLabel(command: Command, color: boolean): string {
+export function defaultLabel(command: Command, color: boolean): string {
   // A blank label only holds the column.
   if (color && command.label.trim() === '') {
     return `${command.label} `;

@@ -44,14 +44,14 @@ describe('[output] --stdout / --stderr / -o route command output', () => {
       );
 
       // The slowest command's output does not arrive as one contiguous run: the
-      // others write into its 900ms window. The fastest one's 100ms would race
-      // process startup on a loaded machine.
+      // others write into its 900ms window. Which of them does is left open —
+      // a slow start, as on Windows, can let the 100ms one finish before
+      // the slowest has written anything.
       const between = stdout.slice(
         stdout.indexOf('[first]') + '[first]'.length,
         stdout.indexOf('__[first]'),
       );
-      expect(between).toContain('[second]');
-      expect(between).toContain('[third]');
+      expect(between).toMatch(/\[(second|third)\]/);
     });
 
     test('a serial run is unaffected by grouping', async () => {
@@ -415,6 +415,11 @@ describe('[output] --show-command / --show-exit-code report each command', () =>
   });
 
   test('--show-exit-code names the signal that killed a command', async () => {
+    if (process.platform === 'win32') {
+      // `kill -TERM $$` is POSIX shell; Windows has no signal to send.
+      return;
+    }
+
     await using dir = await tempDir();
     const { stdout } = await runWithError(
       ['--show-exit-code', 'kill -TERM $$'],

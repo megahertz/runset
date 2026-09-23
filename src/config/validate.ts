@@ -1,7 +1,9 @@
-import type { Std } from '../types.ts';
-import { EXIT_ACTIONS } from '../types.ts';
+import type { ExitAction, Std } from '../types.ts';
 import type { RunsetError } from '../utils/errors.ts';
+import { isPlainObject } from '../utils/object.ts';
 import { TIMINGS } from './std.ts';
+
+const EXIT_ACTIONS = new Set<ExitAction>(['continue', 'restart', 'stop']);
 
 // Each returns an error message, or `undefined` when the value is fine.
 
@@ -33,7 +35,7 @@ export function stringError(name: string, value: unknown): string | undefined {
 }
 
 export function envError(name: string, value: unknown): string | undefined {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+  if (!isPlainObject(value)) {
     return `${name} must be an object.`;
   }
 

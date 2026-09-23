@@ -8,15 +8,12 @@ export class FileRegistry {
 
   private readonly streams = new Map<string, fs.WriteStream>();
   private readonly cwd: string;
-  private handler: ((error: Error) => void) | undefined;
+  private readonly onFailure: (error: Error) => void;
 
-  constructor(cwd: string) {
+  /** `onFailure` is called once, with the first failure. */
+  constructor(cwd: string, onFailure: (error: Error) => void) {
     this.cwd = cwd;
-  }
-
-  /** Called once, with the first failure. */
-  onFailure(handler: (error: Error) => void): void {
-    this.handler = handler;
+    this.onFailure = onFailure;
   }
 
   open(destination: string): fs.WriteStream {
@@ -40,7 +37,7 @@ export class FileRegistry {
     const streams = [...this.streams.values()];
     this.streams.clear();
 
-    await Promise.all(streams.map(async (stream) => closed(stream)));
+    await Promise.all(streams.map((stream) => closed(stream)));
   }
 
   private fail(destination: string, error: Error): void {
@@ -51,7 +48,7 @@ export class FileRegistry {
     this.error = new Error(
       `cannot write to "${destination}": ${error.message}`,
     );
-    this.handler?.(this.error);
+    this.onFailure(this.error);
   }
 }
 

@@ -118,10 +118,12 @@ describe('[placeholders] {1}, {@} and {*} pull from runset s own arguments', () 
   });
 
   describe('{name}', () => {
+    // Through a node script rather than the shell's `echo`, which on Windows
+    // prints the quotes that protect the value along with it.
     test('--name value fills the placeholder', async () => {
       await using dir = await tempDir();
       const { stdout } = await run(
-        ['echo port={port}', '--', '--port', '8080'],
+        ['test-task:echo port={port}', '--', '--port', '8080'],
         dir.path,
       );
       expect(stdout).toMatch(/port=8080/);
@@ -130,7 +132,7 @@ describe('[placeholders] {1}, {@} and {*} pull from runset s own arguments', () 
     test('--name=value does too', async () => {
       await using dir = await tempDir();
       const { stdout } = await run(
-        ['echo port={port}', '--', '--port=8080'],
+        ['test-task:echo port={port}', '--', '--port=8080'],
         dir.path,
       );
       expect(stdout).toMatch(/port=8080/);
@@ -138,14 +140,17 @@ describe('[placeholders] {1}, {@} and {*} pull from runset s own arguments', () 
 
     test('a bare --name answers true', async () => {
       await using dir = await tempDir();
-      const { stdout } = await run(['echo v={flag}', '--', '--flag'], dir.path);
+      const { stdout } = await run(
+        ['test-task:echo v={flag}', '--', '--flag'],
+        dir.path,
+      );
       expect(stdout).toMatch(/v=true/);
     });
 
     test('either spelling of the name answers', async () => {
       await using dir = await tempDir();
       const { stdout } = await run(
-        ['echo v={noTest}', '--', '--no-test', 'yes'],
+        ['test-task:echo v={noTest}', '--', '--no-test', 'yes'],
         dir.path,
       );
       expect(stdout).toMatch(/v=yes/);
@@ -167,6 +172,11 @@ describe('[placeholders] {1}, {@} and {*} pull from runset s own arguments', () 
     });
 
     test('a shell variable is not a placeholder', async () => {
+      if (process.platform === 'win32') {
+        // `${HOME:-fallback}` is POSIX shell; cmd.exe has no such expansion.
+        return;
+      }
+
       await using dir = await tempDir();
       // Written out so the source has no literal `${`, which lint rejects.
       const variable = `${'$'}{HOME:-fallback}`;

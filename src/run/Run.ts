@@ -9,12 +9,13 @@ import { signalExitCode } from '../utils/os.ts';
 import { isTerminal } from '../utils/terminal.ts';
 import { FileRegistry } from './FileRegistry.ts';
 import { Logger } from './Logger.ts';
-import { makePrefix } from './prefix.ts';
+import { defaultLabel } from './prefix.ts';
 import { Process } from './Process.ts';
 import { schedule } from './schedule.ts';
 
 /** One run: the processes built from a plan, and what stops them. */
 export class Run {
+  /** @internal */
   readonly config: Config;
   /** @internal */
   readonly processes: Process[];
@@ -25,16 +26,15 @@ export class Run {
 
   constructor({ commands, config, packageInfo }: Plan) {
     this.config = config;
-    this.files = new FileRegistry(config.cwd);
+    // A log that cannot be written stops the run, whatever `onFailure` says.
+    this.files = new FileRegistry(config.cwd, () =>
+      this.stopEverything({ reason: 'policy' }),
+    );
     this.logger = new Logger(
       config.logLevel,
       config.destinations.stderr,
       config.color !== 'none',
     );
-
-    for (const warning of config.warnings) {
-      this.logger.warn(`runset: ${warning}`);
-    }
 
     const context = {
       config,
@@ -44,9 +44,6 @@ export class Run {
       requestStop: () => this.stopEverything({ reason: 'policy' }),
     };
     this.processes = commands.map((command) => new Process(command, context));
-
-    // A log that cannot be written stops the run, whatever `onFailure` says.
-    this.files.onFailure(() => this.stopEverything({ reason: 'policy' }));
   }
 
   /** A library caller's config object, through the same pipeline as the CLI. */
@@ -73,6 +70,10 @@ export class Run {
 
   /** Rejects with a {@link RunsetError} when the run did not succeed. */
   async start(): Promise<Run> {
+    for (const warning of this.config.warnings) {
+      this.logger.warn(`runset: ${warning}`);
+    }
+
     if (this.config.dryRun) {
       // To stdout, not the logger: the plan is the output, whatever the log level.
       this.config.destinations.stdout.write(`${this.describe()}\n`);
@@ -99,11 +100,11 @@ export class Run {
     }
 
     const failed = this.failed();
-    const exitCode = failed[0]?.getReportedExitCode();
+    const exitCode = this.getExitCode();
     const { stopping } = this;
 
     if (this.files.error) {
-      throw new RunsetError(this.files.error.message, exitCode ?? 1);
+      throw new RunsetError(this.files.error.message, exitCode || 1);
     }
 
     if (stopping?.signal) {
@@ -122,11 +123,12 @@ export class Run {
       );
     }
 
-    if (exitCode !== undefined) {
+    if (failed.length > 0) {
+      const tally = this.tally(failed);
       throw new RunsetError(
-        `${this.tally()}: ${failed.map((process) => describeFailure(process)).join(', ')}`,
+        `${tally}: ${failed.map((process) => describeFailure(process)).join(', ')}`,
         exitCode,
-        this.failureReport(),
+        this.failureReport(tally, failed),
       );
     }
 
@@ -138,7 +140,7 @@ export class Run {
   }
 
   /** `1 of 5 commands failed, 2 stopped, 1 not started`. */
-  private tally(): string {
+  private tally(failed: Process[]): string {
     const { processes } = this;
     const total = processes.length;
     const stopped = processes.filter(
@@ -147,7 +149,7 @@ export class Run {
     const notStarted = processes.filter((process) => !process.started).length;
 
     return [
-      `${this.failed().length} of ${total} command${total === 1 ? '' : 's'} failed`,
+      `${failed.length} of ${total} command${total === 1 ? '' : 's'} failed`,
       stopped > 0 && `${stopped} stopped`,
       notStarted > 0 && `${notStarted} not started`,
     ]
@@ -156,24 +158,20 @@ export class Run {
   }
 
   /** The tally, then a row per failure, labelled as its output was. */
-  private failureReport(): string {
-    const color = this.config.color !== 'none';
-    const red = (text: string): string => (color ? paint(text, ['red']) : text);
+  private failureReport(tally: string, failed: Process[]): string {
+    const colored = this.config.color !== 'none';
+    const red = (text: string): string => paint(text, ['red'], colored);
 
-    const rows = this.failed().map((process) => {
+    const rows = failed.map((process) => {
       const { command } = process;
       // Not padded: there is no column to line up with here.
       const label = command.label.trim();
-      const prefix = makePrefix(
-        { ...command, label },
-        color,
-        undefined,
-        'stderr',
-      ) as string;
+      const prefix =
+        label === '' ? '' : defaultLabel({ ...command, label }, colored);
       return `  ${red('✖')} ${prefix}${command.command} ${red(process.describeExit())}`;
     });
 
-    return [this.tally(), ...rows].join('\n');
+    return [tally, ...rows].join('\n');
   }
 
   private failed(): Process[] {

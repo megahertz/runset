@@ -10,6 +10,9 @@ const ESCAPE =
 
 const segmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
 
+/** Printable ASCII only: one column per character, nothing to segment. */
+const PLAIN = /^[ -~]*$/;
+
 export function isTerminal(stream: NodeJS.WritableStream): boolean {
   return (stream as NodeJS.WriteStream).isTTY === true;
 }
@@ -30,6 +33,10 @@ export function parseColumns(value: string | undefined): number | undefined {
 
 /** The columns `text` takes on screen. */
 export function visibleWidth(text: string): number {
+  if (PLAIN.test(text)) {
+    return text.length;
+  }
+
   let width = 0;
   for (const { segment } of segmenter.segment(text.replace(ESCAPE, ''))) {
     width += columnWidth(segment, width);
@@ -50,6 +57,14 @@ export function wrapLine(line: string, width: number, offset = 0): string[] {
   const fits = line.length * 2 <= width && !line.includes('\t');
   if (width < 1 || fits || line.includes('\r')) {
     return [line];
+  }
+
+  if (PLAIN.test(line)) {
+    const pieces: string[] = [];
+    for (let start = 0; start < line.length; start += width) {
+      pieces.push(line.slice(start, start + width));
+    }
+    return pieces;
   }
 
   const pieces: string[] = [];

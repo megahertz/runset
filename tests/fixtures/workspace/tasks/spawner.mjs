@@ -13,4 +13,5 @@ const child = cp.spawn(
 );
 
 appendResult(`spawned:${child.pid} `);
+console.log('spawned');
 setInterval(() => {}, 1000);

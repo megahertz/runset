@@ -524,9 +524,9 @@ describe('[config] runset.config.* and config scripts', () => {
         parallel: true,
       });
 
-      expect(runner.processes.map((item) => item.command.parallel)).toEqual([
-        true,
-        true,
+      // Both in one stage: they run together.
+      expect(runner.processes.map((item) => item.command.stage)).toEqual([
+        0, 0,
       ]);
     });
   });

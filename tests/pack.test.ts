@@ -36,7 +36,8 @@ function exec(
       // than starting from whatever a real consumer's machine says.
       env: withoutNpmConfig(process.env),
       // npm ships as a `.cmd` shim on Windows, which only runs through a shell.
-      shell: process.platform === 'win32',
+      // Nothing else does: a shell would split an argument like `echo hi`.
+      shell: process.platform === 'win32' && command === 'npm',
       stdio: ['ignore', 'pipe', 'pipe'],
     });
 

@@ -1,5 +1,8 @@
 # runset
 
+[![Tests](https://github.com/megahertz/runset/actions/workflows/tests.yml/badge.svg)](https://github.com/megahertz/runset/actions/workflows/tests.yml)
+[![NPM version](https://badge.fury.io/js/runset.svg)](https://badge.fury.io/js/runset)
+
 Run npm scripts and shell commands in parallel or sequence, with glob matching,
 reusable pipelines, colored labels, and grouped output. Inspired by
 `npm-run-all`, with more control over execution and output.

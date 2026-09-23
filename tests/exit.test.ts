@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import { runset } from '../src/index.ts';
 import {
+  OUTLIVES_A_STOP,
   run,
   runCli,
   runCliAndKill,
@@ -22,10 +23,10 @@ describe('[exit] what a command s exit does to the run', () => {
 
     test('a failure stops the run', async () => {
       await using dir = await tempDir();
-      await runWithError(
-        ['-p', 'test-task:error', 'test-task:append2 a'],
-        dir.path,
-      );
+      await runWithError(['-p', 'test-task:error', 'test-task:append2 a'], {
+        cwd: dir.path,
+        env: OUTLIVES_A_STOP,
+      });
 
       expect(await dir.result()).toBeOneOf([undefined, 'a']);
     });
@@ -48,7 +49,7 @@ describe('[exit] what a command s exit does to the run', () => {
       await using dir = await tempDir();
       await run(
         ['--on-success', 'stop', '-p', 'echo done', 'test-task:append2 a'],
-        dir.path,
+        { cwd: dir.path, env: OUTLIVES_A_STOP },
       );
 
       expect(await dir.result()).toBeOneOf([undefined, 'a']);
@@ -81,7 +82,7 @@ describe('[exit] what a command s exit does to the run', () => {
           'test-task:echo loud::on-success=stop',
           'test-task:append2 a',
         ],
-        dir.path,
+        { cwd: dir.path, env: OUTLIVES_A_STOP },
       );
 
       expect(await dir.result()).toBeOneOf([undefined, 'a']);
@@ -124,7 +125,7 @@ describe('[exit] what a command s exit does to the run', () => {
         '-s',
         'test-task:append b',
       ],
-      dir.path,
+      { cwd: dir.path, env: OUTLIVES_A_STOP },
     );
 
     // Neither the command beside it nor the serial step after it gets a turn.
@@ -133,6 +134,12 @@ describe('[exit] what a command s exit does to the run', () => {
 
   describe('a signal aimed at runset', () => {
     test('SIGINT exits 130, the code a shell reports for it', async () => {
+      if (process.platform === 'win32') {
+        // Windows cannot signal another process: a SIGINT or SIGTERM sent to
+        // runset ends it outright, before it can pass anything on.
+        return;
+      }
+
       await using dir = await tempDir();
       const { code } = await runCliAndKill('test-task:signal', {
         after: 'ready',
@@ -145,6 +152,12 @@ describe('[exit] what a command s exit does to the run', () => {
     });
 
     test('SIGTERM exits 143', async () => {
+      if (process.platform === 'win32') {
+        // Windows cannot signal another process: a SIGINT or SIGTERM sent to
+        // runset ends it outright, before it can pass anything on.
+        return;
+      }
+
       await using dir = await tempDir();
       const { code } = await runCliAndKill('test-task:signal', {
         after: 'ready',
@@ -156,6 +169,12 @@ describe('[exit] what a command s exit does to the run', () => {
     });
 
     test('it still ends a run that was carrying a failure', async () => {
+      if (process.platform === 'win32') {
+        // Windows cannot signal another process: a SIGINT or SIGTERM sent to
+        // runset ends it outright, before it can pass anything on.
+        return;
+      }
+
       await using dir = await tempDir();
       // `--on-failure continue` means the failure did not stop the run, so the
       // signal is what did — and 130 is the answer to "why did this stop?".
@@ -168,24 +187,38 @@ describe('[exit] what a command s exit does to the run', () => {
     });
 
     test('but a run already stopped by a failure keeps that code', async () => {
+      if (process.platform === 'win32') {
+        // Windows cannot signal another process: a SIGINT or SIGTERM sent to
+        // runset ends it outright, before it can pass anything on.
+        return;
+      }
+
       await using dir = await tempDir();
       // The failure ends the run; the stubborn command ignores the SIGTERM it
       // is sent, so the Ctrl+C that follows is a second signal, not a first.
+      // `--show-exit-code` says when the failure has landed.
       const { code } = await runCliAndKill(
         [
           '--kill-timeout',
           '30000',
+          '--show-exit-code',
           '-p',
           'test-task:error',
           'test-task:stubborn',
         ],
-        { cwd: dir.path, delay: 700, signal: 'SIGINT' },
+        { after: 'code 1', cwd: dir.path, signal: 'SIGINT' },
       );
 
       expect(code).toBe(1);
     });
 
     test('a successful `on-success=stop` run still exits 0', async () => {
+      if (process.platform === 'win32') {
+        // Windows cannot signal another process: a SIGINT or SIGTERM sent to
+        // runset ends it outright, before it can pass anything on.
+        return;
+      }
+
       await using dir = await tempDir();
       const { code } = await runCli(
         ['--on-success', 'stop', '-p', 'echo done', 'test-task:append2 a'],
@@ -198,11 +231,17 @@ describe('[exit] what a command s exit does to the run', () => {
 
   describe('--kill-timeout', () => {
     test('a command that ignores SIGTERM is killed anyway', async () => {
+      if (process.platform === 'win32') {
+        // Windows cannot signal another process: a SIGINT or SIGTERM sent to
+        // runset ends it outright, before it can pass anything on.
+        return;
+      }
+
       await using dir = await tempDir();
       const started = Date.now();
       const { code } = await runCliAndKill(
         ['--kill-timeout', '400', 'test-task:stubborn'],
-        { cwd: dir.path, delay: 300, signal: 'SIGINT' },
+        { after: 'stubborn', cwd: dir.path, signal: 'SIGINT' },
       );
 
       // Without the escalation this run would never end.
@@ -211,11 +250,17 @@ describe('[exit] what a command s exit does to the run', () => {
     });
 
     test('0 leaves no grace period at all', async () => {
+      if (process.platform === 'win32') {
+        // Windows cannot signal another process: a SIGINT or SIGTERM sent to
+        // runset ends it outright, before it can pass anything on.
+        return;
+      }
+
       await using dir = await tempDir();
       const started = Date.now();
       await runCliAndKill(['--kill-timeout', '0', 'test-task:stubborn'], {
+        after: 'stubborn',
         cwd: dir.path,
-        delay: 300,
         signal: 'SIGINT',
       });
 
@@ -223,11 +268,17 @@ describe('[exit] what a command s exit does to the run', () => {
     });
 
     test('a second Ctrl+C does not wait for the timeout', async () => {
+      if (process.platform === 'win32') {
+        // Windows cannot signal another process: a SIGINT or SIGTERM sent to
+        // runset ends it outright, before it can pass anything on.
+        return;
+      }
+
       await using dir = await tempDir();
       const started = Date.now();
       const { code } = await runCliAndKillTwice(
         ['--kill-timeout', '30000', 'test-task:stubborn'],
-        { cwd: dir.path, delay: 300, signal: 'SIGINT' },
+        { after: 'stubborn', cwd: dir.path, delay: 300, signal: 'SIGINT' },
       );
 
       expect(code).toBe(130);
