@@ -53,20 +53,21 @@ Placeholder values are quoted automatically for the shell.
 
 ## Options
 
-| Option                  | What it does                                  |
-| ----------------------- | --------------------------------------------- |
-| `-p, --parallel`        | Run the following commands together           |
-| `-s, --serial`          | Run the following commands one after another  |
-| `-j, --jobs <n>`        | Limit how many commands run at once           |
-| `--on-failure <action>` | `stop` (default), `continue`, or `restart`    |
-| `--on-success <action>` | `continue` (default), `stop`, or `restart`    |
-| `-o, --output grouped`  | Buffer each command's output until it exits   |
-| `--stdout <file>`       | Write stdout to a file                        |
-| `--labels <mode>`       | `auto` (default), `all`, `custom`, or `none`  |
-| `--cwd <dir>`           | Set the working directory                     |
-| `-e, --env <k=v>`       | Add an env variable for every command         |
-| `--dry-run`             | Show what would run without starting anything |
-| `-c, --config <path>`   | Use a specific config file                    |
+| Option                  | What it does                                     |
+| ----------------------- | ------------------------------------------------ |
+| `-p, --parallel`        | Run the following commands together              |
+| `-s, --serial`          | Run the following commands one after another     |
+| `-j, --jobs <n>`        | Limit how many commands run at once              |
+| `--on-failure <action>` | `stop` (default), `continue`, or `restart`       |
+| `--on-success <action>` | `continue` (default), `stop`, or `restart`       |
+| `-o, --output grouped`  | Buffer each command's output until it exits      |
+| `--stdout <file>`       | Write stdout to a file                           |
+| `--labels <mode>`       | `auto` (default), `all`, `custom`, or `none`     |
+| `--show-exit-code`      | Print `✓ 2.1s` or `✗ code 1 · 2.1s` at each exit |
+| `--cwd <dir>`           | Set the working directory                        |
+| `-e, --env <k=v>`       | Add an env variable for every command            |
+| `--dry-run`             | Show what would run without starting anything    |
+| `-c, --config <path>`   | Use a specific config file                       |
 
 Use `--help` for all options.
 

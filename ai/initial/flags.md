@@ -133,9 +133,11 @@ command to write. Unprefixed output is passed straight through, as before.
 
 - `--show-command` — print `run <command>` (`run` in blue) before each command
   starts (and before each restart); config: `showCommand: true`
-- `--show-exit-code` — print how each command ended,
-  `<command> exited with code N` (or `was killed by SIGTERM`), green for a clean
-  exit and red otherwise; config: `showExitCode: true`
+- `--show-exit-code` — print how each command ended and how long it ran:
+  `✓ 2.1s` in green for a clean exit, `✗ code 1 · 2.1s` (or `✗ SIGTERM · 2.1s`,
+  `✗ stopped · 2.1s`) in red otherwise; config: `showExitCode: true`. The time
+  is the attempt's wall time — `ms` under a second, seconds with one decimal
+  from there up — and the command's name is left to its label
 
 Both are written into the command's own stdout, so they are labelled like its
 output and follow its `--stdout` setting: a `grouped` command prints its start

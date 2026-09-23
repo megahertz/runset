@@ -4,6 +4,7 @@ import type { Command, TerminateOptions } from '../types.ts';
 import { paint } from '../utils/colors.ts';
 import type { PackageInfo } from '../utils/fs.ts';
 import { signalExitCode } from '../utils/os.ts';
+import { formatDuration } from '../utils/string.ts';
 import { createEnv } from './env.ts';
 import type { FileRegistry } from './FileRegistry.ts';
 import type { Logger } from './Logger.ts';
@@ -35,6 +36,8 @@ export class Process {
   readonly command: Command;
 
   private child: cp.ChildProcess | undefined;
+  /** When the current attempt was spawned, from `performance.now()`. */
+  private attemptStart = 0;
   private readonly context: RunContext;
   private readonly stdout: OutputSink;
   private readonly stderr: OutputSink;
@@ -144,15 +147,25 @@ export class Process {
     this.kill(sent);
   }
 
-  /** `<command> exited with code N`: green when clean, red otherwise. */
+  /** `✓ 2.1s` when clean; `✗ code 1 · 2.1s` or `✗ SIGTERM · 2.1s` otherwise. */
   private exitLine(): string {
-    const text = `${this.command.command} ${this.describeExit()}`;
-    if (!this.context.config.color) {
-      return text;
-    }
-
+    const duration = formatDuration(performance.now() - this.attemptStart);
     const clean = this.exitCode === 0 && this.signal === undefined;
-    return paint(text, [clean ? 'green' : 'red']);
+    const status = clean ? '✓' : `✗ ${this.shortExit()}`;
+    const painted = this.context.config.color
+      ? paint(status, [clean ? 'green' : 'red'])
+      : status;
+
+    return clean ? `${painted} ${duration}` : `${painted} · ${duration}`;
+  }
+
+  /** `code N`, the signal's name, or `stopped`. */
+  private shortExit(): string {
+    if (this.signal !== undefined) {
+      return this.signal;
+    }
+    // A command runset stopped may still exit on its own terms.
+    return this.exitCode === undefined ? 'stopped' : `code ${this.exitCode}`;
   }
 
   /** `exited with code N`, `was killed by SIGTERM`, or `was stopped`. */
@@ -171,6 +184,7 @@ export class Process {
     const { command, context } = this;
     this.exitCode = undefined;
     this.signal = undefined;
+    this.attemptStart = performance.now();
     context.logger.debug(`> ${command.line}`);
 
     await new Promise<void>((resolve) => {

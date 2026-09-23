@@ -31,7 +31,7 @@ Output:
       --labels <mode>        label each output line with its command:
                              none | auto | custom | all (default: auto)
       --show-command         print each command as it starts
-      --show-exit-code       print how each command exited, green or red
+      --show-exit-code       mark each exit and its duration: ✓ 2.1s, ✗ code 1 · 2.1s
 
 General:
   -c, --config <path>        load a config file, skipping the default lookup
