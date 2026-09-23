@@ -196,15 +196,17 @@ describe('[exit] what a command s exit does to the run', () => {
       await using dir = await tempDir();
       // The failure ends the run; the stubborn command ignores the SIGTERM it
       // is sent, so the Ctrl+C that follows is a second signal, not a first.
+      // `--show-exit-code` says when the failure has landed.
       const { code } = await runCliAndKill(
         [
           '--kill-timeout',
           '30000',
+          '--show-exit-code',
           '-p',
           'test-task:error',
           'test-task:stubborn',
         ],
-        { cwd: dir.path, delay: 700, signal: 'SIGINT' },
+        { after: 'code 1', cwd: dir.path, signal: 'SIGINT' },
       );
 
       expect(code).toBe(1);

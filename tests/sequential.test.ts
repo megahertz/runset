@@ -192,9 +192,9 @@ describe('[sequential] runset runs commands one after another by default', () =>
     }
 
     await using dir = await tempDir();
-    const result = await runCliAndKill('test-task:append2 a', {
+    const result = await runCliAndKill('test-task:signal', {
+      after: 'ready',
       cwd: dir.path,
-      env,
     });
 
     expect(result.stderr).toContain(
@@ -210,9 +210,9 @@ describe('[sequential] runset runs commands one after another by default', () =>
     }
 
     await using dir = await tempDir();
-    const result = await runCliAndKill('test-task:append2 a', {
+    const result = await runCliAndKill('test-task:signal', {
+      after: 'ready',
       cwd: dir.path,
-      env,
       signal: 'SIGTERM',
     });
 
@@ -227,9 +227,9 @@ describe('[sequential] runset runs commands one after another by default', () =>
     }
 
     await using dir = await tempDir();
-    const result = await runCliAndKill('test-task:append2 a', {
+    const result = await runCliAndKill('test-task:signal', {
+      after: 'ready',
       cwd: dir.path,
-      env,
       signal: 'SIGTERM',
     });
 
