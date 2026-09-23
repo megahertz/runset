@@ -9,7 +9,7 @@ import { createEnv } from './env.ts';
 import type { FileRegistry } from './FileRegistry.ts';
 import type { Logger } from './Logger.ts';
 import { OutputSink } from './OutputSink.ts';
-import { makePrefix } from './prefix.ts';
+import { makePrefix, prefixWidth } from './prefix.ts';
 
 const USE_PROCESS_GROUPS = process.platform !== 'win32';
 
@@ -46,13 +46,16 @@ export class Process {
     this.command = command;
     this.context = context;
 
-    const { color, destinations, formatLabel } = context.config;
+    const { color, destinations, envColumns, formatLabel, wrap } =
+      context.config;
     const sink = (stream: 'stderr' | 'stdout') =>
       new OutputSink(
         command[stream],
         makePrefix(command, color, formatLabel, stream),
         destinations,
         context.files,
+        wrap,
+        envColumns,
       );
     this.stdout = sink('stdout');
     this.stderr = sink('stderr');
@@ -190,6 +193,20 @@ export class Process {
       : `exited with code ${this.exitCode}`;
   }
 
+  /**
+   * Under `wrap`, `COLUMNS` narrowed by the label: a child writing to a pipe
+   * has no width of its own, and this is what is left of the parent's for it.
+   */
+  private columnsEnv(): NodeJS.ProcessEnv {
+    const columns = this.stdout.columns();
+    if (columns === undefined) {
+      return {};
+    }
+
+    const width = prefixWidth(this.command, this.context.config.color);
+    return { COLUMNS: String(Math.max(1, columns - width)) };
+  }
+
   /** One attempt: resolves when the child is gone. */
   private async spawn(): Promise<void> {
     const { command, context } = this;
@@ -206,7 +223,7 @@ export class Process {
         cwd: command.cwd,
         detached: USE_PROCESS_GROUPS,
         env: createEnv({
-          base: { ...context.config.env, ...command.env },
+          base: { ...context.config.env, ...command.env, ...this.columnsEnv() },
           cwd: command.cwd,
           packageInfo: context.packageInfo,
           scriptName: command.scriptName,

@@ -16,6 +16,8 @@ sequence, with glob matching and reusable pipelines. A more capable
 - **Keep `src/` type-strippable.** The tests run `src/index.ts` through Node
   directly, so avoid syntax Node's strip-only mode rejects: no constructor
   parameter properties, no `enum`, no namespaces.
+- Keep constants local or inline unless shared across functions or expensive to
+  recreate on a hot path.
 - Prefer Node built-ins (`node:child_process`, etc.); keep runtime deps light —
   this is a foundational dev tool.
 - Tooling: `tsdown` (build), `tsc` (typecheck), `oxlint` + `oxfmt`

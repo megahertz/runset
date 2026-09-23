@@ -12,6 +12,7 @@ import type {
 } from '../types.ts';
 import { isCommandSettings } from '../types.ts';
 import { ConfigError } from '../utils/errors.ts';
+import { isTerminal, parseColumns } from '../utils/terminal.ts';
 import { loadConfigJs, unwrapConfigJs } from './loadConfig.ts';
 import { parseCli, type ParsedCli } from './parseCli.ts';
 import { defaultStd, mergeStd } from './std.ts';
@@ -50,6 +51,7 @@ const KNOWN_KEYS = new Set<keyof ConfigJs>([
   'showExitCode',
   'stderr',
   'stdout',
+  'wrap',
 ]);
 
 /** Parses, loads and validates; anything left out comes from the process. */
@@ -87,6 +89,9 @@ export class Config {
   readonly recursive: boolean;
   readonly showCommand: boolean;
   readonly showExitCode: boolean;
+  readonly wrap: boolean;
+  /** `COLUMNS` as runset was started with it: the width where no TTY says. */
+  readonly envColumns: number | undefined;
   readonly labels: LabelMode;
   readonly logLevel: LogLevel;
   readonly dryRun: boolean;
@@ -142,6 +147,8 @@ export class Config {
     this.recursive = options.recursive ?? file.recursive ?? false;
     this.showCommand = options.showCommand ?? file.showCommand ?? false;
     this.showExitCode = options.showExitCode ?? file.showExitCode ?? false;
+    this.wrap = options.wrap ?? file.wrap ?? false;
+    this.envColumns = parseColumns(env.COLUMNS);
     this.labels = (options.labels as LabelMode) ?? file.labels ?? 'auto';
     this.onSuccess = (options.onSuccess ??
       file.onSuccess ??
@@ -183,6 +190,7 @@ export class Config {
       booleanError('recursive', this.recursive),
       booleanError('showCommand', this.showCommand),
       booleanError('showExitCode', this.showExitCode),
+      booleanError('wrap', this.wrap),
       booleanError('dryRun', this.dryRun),
       oneOfError('labels', this.labels, LABEL_MODES),
       stdError('stdout', this.stdout),
@@ -213,10 +221,6 @@ export class Config {
         : Boolean(command),
     );
   }
-}
-
-export function isTerminal(stream: NodeJS.WritableStream): boolean {
-  return (stream as NodeJS.WriteStream).isTTY === true;
 }
 
 /** Flag, then `NO_COLOR`/`FORCE_COLOR`, then whether both streams are TTYs. */

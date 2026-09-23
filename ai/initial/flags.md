@@ -129,6 +129,36 @@ A prefixed line is written only once it is whole: a half-written line waits for
 its newline (or for the command to exit) rather than being landed on by the next
 command to write. Unprefixed output is passed straight through, as before.
 
+### Wrapping
+
+- `-w, --wrap` — wrap labelled lines to the terminal, so every line on screen
+  starts with its label; config: `wrap: true`. Off by default.
+
+A line longer than the terminal is wrapped by the terminal, and the part that
+wraps has no label, so it no longer lines up with the others — a dot reporter is
+the usual case. Under `--wrap` runset breaks the line itself, at the terminal's
+width less the label's, and labels each piece:
+
+```
+[test] ..............................
+[test] .........
+```
+
+The width is the terminal's own, or `COLUMNS` when the stream is not one; with
+neither there is nothing to wrap to, and lines are left whole. Widths are
+measured the way a terminal lays them out — color escapes take no room, CJK and
+emoji take two columns — and a color still open at a break is reset before the
+label and picked up again after it.
+
+A command writes into a pipe, so it has no width of its own to size its output
+to. Under `--wrap` it is given `COLUMNS` — what is left of runset's once its
+label is taken — so a reporter that reads it fits inside the label, and a nested
+`runset --wrap` wraps inside its parent's.
+
+Only labelled output is wrapped, and never a line that moves the cursor: one
+carrying a `\r`, or any escape but a color, is a progress line, and where it
+lands is not runset's to know. A file is not wrapped either.
+
 ### Announcing commands
 
 - `--show-command` — print `run <command>` (`run` in blue) before each command

@@ -64,6 +64,7 @@ Placeholder values are quoted automatically for the shell.
 | `--stdout <file>`       | Write stdout to a file                           |
 | `--labels <mode>`       | `auto` (default), `all`, `custom`, or `none`     |
 | `--show-exit-code`      | Print `✓ 2.1s` or `✗ code 1 · 2.1s` at each exit |
+| `-w, --wrap`            | Wrap long labelled lines, a label on each        |
 | `--cwd <dir>`           | Set the working directory                        |
 | `-e, --env <k=v>`       | Add an env variable for every command            |
 | `--dry-run`             | Show what would run without starting anything    |

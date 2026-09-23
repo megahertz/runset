@@ -32,6 +32,7 @@ Output:
                              none | auto | custom | all (default: auto)
       --show-command         print each command as it starts
       --show-exit-code       mark each exit and its duration: ✓ 2.1s, ✗ code 1 · 2.1s
+  -w, --wrap                 wrap labelled lines to the terminal, a label on each
 
 General:
   -c, --config <path>        load a config file, skipping the default lookup

@@ -23,6 +23,7 @@ const FLAGS: FlagSpec[] = [
   { name: 'labels', takesValue: true },
   { name: 'showCommand', takesValue: false },
   { name: 'showExitCode', takesValue: false },
+  { name: 'wrap', short: 'w', takesValue: false },
   { name: 'help', short: 'h', takesValue: false },
   { name: 'version', short: 'v', takesValue: false },
 ];
@@ -191,6 +192,7 @@ export interface CliOptions {
   showExitCode?: boolean;
   stderr?: string;
   stdout?: string;
+  wrap?: boolean;
 }
 
 export interface ParsedCli {

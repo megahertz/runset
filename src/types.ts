@@ -137,6 +137,8 @@ export interface ConfigJs {
   showExitCode?: boolean;
   stderr?: Partial<Std> | string;
   stdout?: Partial<Std> | string;
+  /** Wrap labelled lines to the terminal, labelling each piece. Default: `false`. */
+  wrap?: boolean;
 }
 
 /** A config module may export the object itself or a sync factory for it. */

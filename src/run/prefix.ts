@@ -1,5 +1,6 @@
 import type { Command, LabelFormatter } from '../types.ts';
 import { isColorName, paint } from '../utils/colors.ts';
+import { visibleWidth } from '../utils/terminal.ts';
 import type { Prefix } from './OutputSink.ts';
 
 /**
@@ -22,6 +23,11 @@ export function makePrefix(
   }
 
   return () => String(formatLabel({ color, command, defaultPrefix, stream }));
+}
+
+/** The columns runset's own prefix takes; `0` without a label. */
+export function prefixWidth(command: Command, color: boolean): number {
+  return command.label === '' ? 0 : visibleWidth(defaultLabel(command, color));
 }
 
 /** A colored block with color; `[label]` without. */

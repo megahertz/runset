@@ -1,4 +1,4 @@
-import { type Config, createConfig, isTerminal } from '../config/Config.ts';
+import { type Config, createConfig } from '../config/Config.ts';
 import { parseCli } from '../config/parseCli.ts';
 import { describeRun } from '../plan/describe.ts';
 import { createPlan, type Plan } from '../plan/plan.ts';
@@ -6,6 +6,7 @@ import type { ConfigJs, TerminateOptions } from '../types.ts';
 import { paint } from '../utils/colors.ts';
 import { RunsetError } from '../utils/errors.ts';
 import { signalExitCode } from '../utils/os.ts';
+import { isTerminal } from '../utils/terminal.ts';
 import { FileRegistry } from './FileRegistry.ts';
 import { Logger } from './Logger.ts';
 import { makePrefix } from './prefix.ts';

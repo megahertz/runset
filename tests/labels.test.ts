@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 import { describe, expect, test } from 'vitest';
 import { Run, runset } from '../src/index.ts';
 import { PALETTE, paletteIndex } from '../src/plan/labels.ts';
@@ -431,5 +432,96 @@ describe('[labels] runset tags interleaved output with its command', () => {
     // Only the command that named no colors is given a pair from the palette.
     expect(first?.command.bgColor).not.toBe('');
     expect(second?.command.bgColor).toBe('bgBlue');
+  });
+});
+
+describe('[labels] --wrap labels every line a long one wraps to', () => {
+  const DOTS = 'echo ..........';
+
+  test('breaks a labelled line at the terminal width', async () => {
+    await using dir = await tempDir();
+    // `[a] ` takes four of the ten columns, leaving six for the dots.
+    const { stdout } = await run(
+      ['--wrap', '--labels', 'all', `${DOTS}::label=a`],
+      {
+        cwd: dir.path,
+        env: { COLUMNS: '10' },
+      },
+    );
+
+    expect(stdout).toBe('[a] ......\n[a] ....\n');
+  });
+
+  test('is off by default', async () => {
+    await using dir = await tempDir();
+    const { stdout } = await run(['--labels', 'all', `${DOTS}::label=a`], {
+      cwd: dir.path,
+      env: { COLUMNS: '10' },
+    });
+
+    expect(stdout).toBe('[a] ..........\n');
+  });
+
+  test('may be turned on in a config file', async () => {
+    await using dir = await tempDir();
+    await dir.write('runset.config.json', JSON.stringify({ wrap: true }));
+
+    const { stdout } = await run(['--labels', 'all', `${DOTS}::label=a`], {
+      cwd: dir.path,
+      env: { COLUMNS: '10' },
+    });
+
+    expect(stdout).toBe('[a] ......\n[a] ....\n');
+  });
+
+  test('leaves the line whole with no width to go by', async () => {
+    await using dir = await tempDir();
+    // Not a TTY, and no COLUMNS.
+    const { stdout } = await run(
+      ['-w', '--labels', 'all', `${DOTS}::label=a`],
+      {
+        cwd: dir.path,
+        env: { COLUMNS: '' },
+      },
+    );
+
+    expect(stdout).toBe('[a] ..........\n');
+  });
+
+  test('leaves unlabelled output alone', async () => {
+    await using dir = await tempDir();
+    const { stdout } = await run(['--wrap', DOTS], {
+      cwd: dir.path,
+      env: { COLUMNS: '4' },
+    });
+
+    expect(stdout).toBe('..........\n');
+  });
+
+  test('hands a command the width its label leaves it', async () => {
+    await using dir = await tempDir();
+    const { stdout } = await run(
+      ['--wrap', '--labels', 'all', 'node -p process.env.COLUMNS::label=a'],
+      { cwd: dir.path, env: { COLUMNS: '80' } },
+    );
+
+    expect(stdout).toBe('[a] 76\n');
+  });
+
+  test('so a nested runset wraps inside its parent s label', async () => {
+    await using dir = await tempDir();
+    const cli = `"${process.execPath}" "${fileURLToPath(new URL('../src/index.ts', import.meta.url))}"`;
+    // The inner run has 16 columns: `[inner] ` leaves 8 of them.
+    const { stdout } = await run(
+      [
+        '--wrap',
+        '--labels',
+        'all',
+        `${cli} --wrap --labels all "${DOTS}::label=inner"::label=a`,
+      ],
+      { cwd: dir.path, env: { COLUMNS: '20' } },
+    );
+
+    expect(stdout).toBe('[a] [inner] ........\n[a] [inner] ..\n');
   });
 });

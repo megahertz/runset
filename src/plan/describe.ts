@@ -45,6 +45,7 @@ function describeOptions(config: Config): string[] {
       ['labels', config.labels],
       ['show-command', String(config.showCommand)],
       ['show-exit-code', String(config.showExitCode)],
+      ['wrap', String(config.wrap)],
       ['color', String(config.color)],
       ['log-level', config.logLevel],
     ]).map((line) => `  ${line}`),

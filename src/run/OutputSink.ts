@@ -1,5 +1,6 @@
 import type { Destinations, Std } from '../types.ts';
 import { isStreamDestination } from '../types.ts';
+import { terminalColumns, visibleWidth, wrapLine } from '../utils/terminal.ts';
 import type { FileRegistry } from './FileRegistry.ts';
 
 /**
@@ -18,17 +19,24 @@ export class OutputSink {
   private readonly prefix: Prefix;
   private readonly destinations: Destinations;
   private readonly files: FileRegistry;
+  private readonly wrap: boolean;
+  /** `COLUMNS`, for a stream that is not a terminal. */
+  private readonly envColumns: number | undefined;
 
   constructor(
     std: Std,
     prefix: Prefix,
     destinations: Destinations,
     files: FileRegistry,
+    wrap = false,
+    envColumns?: number,
   ) {
     this.std = std;
     this.prefix = prefix;
     this.destinations = destinations;
     this.files = files;
+    this.wrap = wrap;
+    this.envColumns = envColumns;
   }
 
   /** Opened on first use, so a command that never writes truncates nothing. */
@@ -39,6 +47,17 @@ export class OutputSink {
 
     this.opened ??= this.files.open(this.std.destination);
     return this.opened;
+  }
+
+  /**
+   * The width labelled lines are wrapped to under `wrap`: the terminal's own,
+   * else `COLUMNS`. A file has none, and neither has a run without `wrap`.
+   */
+  columns(): number | undefined {
+    if (!this.wrap || !isStreamDestination(this.std.destination)) {
+      return undefined;
+    }
+    return terminalColumns(this.target) ?? this.envColumns;
   }
 
   write(chunk: string): void {
@@ -94,14 +113,33 @@ export class OutputSink {
 
     const endsWithNewline = chunk.endsWith('\n');
     const body = endsWithNewline ? chunk.slice(0, -1) : chunk;
+    const columns = this.columns();
 
     // Blank lines are prefixed too, keeping the label column unbroken.
     return (
       body
         .split('\n')
-        .map((line) => (typeof prefix === 'string' ? prefix : prefix()) + line)
+        .map((line) => this.label(line, prefix, columns))
         .join('\n') + (endsWithNewline ? '\n' : '')
     );
+  }
+
+  /** One line, prefixed; wrapped first when it would overflow the terminal. */
+  private label(
+    line: string,
+    prefix: Prefix,
+    columns: number | undefined,
+  ): string {
+    // Asked once per line, so a clock or counter reads the same on each piece.
+    const text = typeof prefix === 'string' ? prefix : prefix();
+    if (columns === undefined) {
+      return text + line;
+    }
+
+    const width = visibleWidth(text);
+    return wrapLine(line, columns - width, width)
+      .map((piece) => text + piece)
+      .join('\n');
   }
 }
 
