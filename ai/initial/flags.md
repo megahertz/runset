@@ -331,6 +331,8 @@ not get to keep the port it was holding.
 
 - `-c, --config <path>` — load a config file (skips the default lookup)
 - `--cwd <dir>` — working directory for tasks
+- `-e, --env <NAME=value>` — add a variable to every command's environment;
+  repeatable (`runset -e FORCE_COLOR=1 -e 'DEBUG=*' start`)
 - `--color` / `--no-color` — force color on/off. Priority: CLI flag >
   `FORCE_COLOR` / `NO_COLOR` env > tty autodetection
 - `--log-level <level>` — `error` | `warn` | `info` (default) | `debug`
@@ -477,7 +479,23 @@ spacing. Double quotes are handled by `cmd.exe` directly.
 An opening quote with nothing to close it is an error, raised before any command
 starts rather than left to produce a command nobody wrote.
 
-## Per-command environment
+## Environment
+
+`-e NAME=value` adds a variable to the environment of every command in the run,
+and may be given as often as needed; the value runs to the end of the argument,
+`=` and all. A config file writes the same thing as a run-wide `env` object:
+
+```js
+module.exports = { env: { FORCE_COLOR: '1' }, commands: ['start'] };
+```
+
+The two merge per variable, and `--env` wins only for the names it gives. It is
+the run's environment, so it changes what the commands see and not what runset
+decides for itself: `-e FORCE_COLOR=1` makes the commands colorize, while
+runset's own `--color` detection still reads the environment it was started
+with.
+
+### Per command
 
 A command may add to the environment it runs in. There is no CLI spelling — it
 is an object, so a config file or a library caller sets it:
@@ -489,9 +507,9 @@ commands: [
 ],
 ```
 
-What a command adds sits on top of the environment the run was given; an `env`
-aimed at a named list passes down to the commands in it, and a command that
-names its own replaces it rather than merging.
+What a command adds sits on top of the environment the run was given, `env`
+included; an `env` aimed at a named list passes down to the commands in it, and
+a command that names its own replaces it rather than merging.
 
 ## Placeholders
 

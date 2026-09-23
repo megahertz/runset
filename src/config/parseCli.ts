@@ -12,6 +12,7 @@ const FLAGS: FlagSpec[] = [
   { name: 'onFailure', takesValue: true },
   { name: 'config', short: 'c', takesValue: true },
   { name: 'cwd', takesValue: true },
+  { name: 'env', short: 'e', takesValue: true },
   { name: 'color', takesValue: false },
   { name: 'logLevel', takesValue: true },
   { name: 'dryRun', takesValue: false },
@@ -40,6 +41,15 @@ export function parseCli(rawArgv: string[]): ParsedCli {
 
   function setOption(spec: FlagSpec, raw: boolean | string): void {
     switch (spec.name) {
+      case 'env': {
+        const text = String(raw);
+        const eq = text.indexOf('=');
+        if (eq < 1) {
+          throw new CliError(`Option "--env" takes NAME=value, not "${text}".`);
+        }
+        (options.env ??= {})[text.slice(0, eq)] = text.slice(eq + 1);
+        break;
+      }
       case 'help': {
         help = true;
         break;
@@ -165,6 +175,7 @@ export interface CliOptions {
   config?: string;
   cwd?: string;
   dryRun?: boolean;
+  env?: Record<string, string>;
   jobs?: number;
   killTimeout?: number;
   labels?: string;

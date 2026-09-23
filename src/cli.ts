@@ -33,6 +33,7 @@ Output:
 General:
   -c, --config <path>        load a config file, skipping the default lookup
       --cwd <dir>            working directory for the commands
+  -e, --env <NAME=value>     set an environment variable for every command
       --color, --no-color    force color on or off
       --log-level <level>    error | warn | info | debug (default: info)
       --dry-run              print the resolved stages and run nothing
@@ -50,6 +51,7 @@ Examples:
   runset clean lint "build:**"
   runset -p "watch:**"
   runset clean -p lint test -s deploy
+  runset -e FORCE_COLOR=1 -e 'DEBUG=*' start
 `;
 
 /** Runs the CLI and returns its exit code. */

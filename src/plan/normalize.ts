@@ -5,6 +5,7 @@ import {
   actionError,
   booleanError,
   check,
+  envError,
   stdError,
   stringError,
 } from '../config/validate.ts';
@@ -361,9 +362,7 @@ function validateCommand(command: Command): void {
     ...(['stderr', 'stdout'] as const).map((key) =>
       stdError(where(key), command[key]),
     ),
-    typeof command.env === 'object' && command.env !== null
-      ? undefined
-      : `${where('env')} must be an object.`,
+    envError(where('env'), command.env),
   ];
 
   check(

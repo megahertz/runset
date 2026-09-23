@@ -90,6 +90,7 @@ export interface ConfigJs {
   commands?: CommandDefinition[];
   cwd?: string;
   dryRun?: boolean;
+  env?: Record<string, string>;
   /**
    * Renders the prefix of each labelled output line.
    *

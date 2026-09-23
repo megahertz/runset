@@ -69,6 +69,27 @@ describe('[parseCli]', () => {
     expect(() => parseCli(['-Z', 'foo'])).toThrow(/unknown option/i);
   });
 
+  test('-e collects NAME=value pairs, the value keeping any "="', () => {
+    const { options, commands } = parseCli([
+      '-e',
+      'FORCE_COLOR=1',
+      '--env=DEBUG=*',
+      '-eQUERY=a=b',
+      'start',
+    ]);
+    expect(options.env).toEqual({
+      DEBUG: '*',
+      FORCE_COLOR: '1',
+      QUERY: 'a=b',
+    });
+    expect(commands).toEqual(['start']);
+  });
+
+  test('-e without a NAME= throws', () => {
+    expect(() => parseCli(['-e', 'FOO', 'x'])).toThrow(/NAME=value/);
+    expect(() => parseCli(['-e', '=1', 'x'])).toThrow(/NAME=value/);
+  });
+
   test('a value flag with nothing after it throws', () => {
     expect(() => parseCli(['foo', '--jobs'])).toThrow(/needs a value/i);
   });

@@ -32,6 +32,19 @@ export function stringError(name: string, value: unknown): string | undefined {
     : `${name} must be a string, got ${formatValue(value)}.`;
 }
 
+export function envError(name: string, value: unknown): string | undefined {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    return `${name} must be an object.`;
+  }
+
+  const bad = Object.entries(value).find(
+    ([, entry]) => typeof entry !== 'string',
+  );
+  return bad === undefined
+    ? undefined
+    : `${name}.${bad[0]} must be a string, got ${formatValue(bad[1])}.`;
+}
+
 export function oneOfError(
   name: string,
   value: unknown,

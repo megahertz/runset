@@ -57,3 +57,31 @@ describe('[config] color autodetection', () => {
     ).toBe(false);
   });
 });
+
+describe('[config] env', () => {
+  function configFor(configJs: object, argv: string[] = ['echo hi']) {
+    return createConfig({
+      cli: parseCli(argv),
+      configJs,
+      cwd: process.cwd(),
+      env: { FROM_PROCESS: 'p' },
+    });
+  }
+
+  test('the file and --env merge per variable, the flag winning', () => {
+    const config = configFor({ env: { A: 'file', B: 'file' } }, [
+      '-e',
+      'B=flag',
+      'echo hi',
+    ]);
+
+    expect(config.env).toEqual({ A: 'file', B: 'flag', FROM_PROCESS: 'p' });
+  });
+
+  test('a non-string value is refused', () => {
+    expect(() => configFor({ env: { PORT: 4000 } })).toThrow(
+      /env\.PORT must be a string/,
+    );
+    expect(() => configFor({ env: ['A=1'] })).toThrow(/env must be an object/);
+  });
+});

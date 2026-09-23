@@ -19,6 +19,7 @@ import {
   actionError,
   booleanError,
   check,
+  envError,
   numberError,
   oneOfError,
   stdError,
@@ -34,6 +35,7 @@ const KNOWN_KEYS = new Set<keyof ConfigJs>([
   'commands',
   'cwd',
   'dryRun',
+  'env',
   'formatLabel',
   'jobs',
   'killTimeout',
@@ -100,7 +102,6 @@ export class Config {
 
     this.cwd = path.resolve(cwd, options.cwd ?? '.');
     this.destinations = destinations;
-    this.env = env;
 
     const context = { argv: cli.argv, cwd: this.cwd, env };
     const file =
@@ -117,6 +118,11 @@ export class Config {
     if (file.cwd !== undefined && options.cwd === undefined) {
       this.cwd = path.resolve(cwd, file.cwd);
     }
+
+    // Checked before the merge, which would flatten an array into an object.
+    // Merged per variable: a flag outranks the file only for what it names.
+    check(envError('env', file.env ?? {}), ConfigError);
+    this.env = { ...env, ...file.env, ...options.env };
 
     this.commands = [...(file.commands ?? []), ...cli.commands].filter(Boolean);
     this.commandDictionary = file.commandDictionary ?? {};

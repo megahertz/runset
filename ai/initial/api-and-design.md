@@ -198,6 +198,7 @@ interface ConfigJs {
   formatLabel?: LabelFormatter; // renders the prefix; asked once per line
   logLevel?: 'error' | 'warn' | 'info' | 'debug';
   dryRun?: boolean; // print the resolved commands and run nothing
+  env?: Record<string, string>; // added to every command's environment
   stdout?: Partial<Std> | string;
   stderr?: Partial<Std> | string;
   cwd?: string;
@@ -247,7 +248,7 @@ class Config {
   commandDictionary: Record<string, CommandDefinition>;
   args: ParsedArgs; // literal positional arguments after --
   cwd: string; // resolved absolute cwd
-  env: NodeJS.ProcessEnv;
+  env: NodeJS.ProcessEnv; // the process's, then file `env`, then `--env`
 
   jobs: number; // default Infinity
   killTimeout: number; // ms; default 5000

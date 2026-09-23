@@ -130,6 +130,32 @@ describe('[cli] the command-line surface', () => {
       });
     });
 
+    test('-e adds to the environment of every command', async () => {
+      await using dir = await tempDir();
+      await run(['-e', 'RUNSET_TEST_CUSTOM=from-the-flag', 'test-task:env'], {
+        cwd: dir.path,
+        env: { RUNSET_TEST_CUSTOM: 'the run' },
+      });
+
+      expect(JSON.parse((await dir.result()) ?? '{}')).toMatchObject({
+        custom: 'from-the-flag',
+      });
+    });
+
+    test('a config file env reaches every command', async () => {
+      await using dir = await tempDir();
+      await dir.write(
+        'runset.config.js',
+        'module.exports = { env: { RUNSET_TEST_CUSTOM: "the file" } };',
+      );
+
+      await run('test-task:env', dir.path);
+
+      expect(JSON.parse((await dir.result()) ?? '{}')).toMatchObject({
+        custom: 'the file',
+      });
+    });
+
     test('runs ten commands without warning about listeners', async () => {
       await using dir = await tempDir();
       const { stderr } = await run(
