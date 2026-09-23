@@ -13,11 +13,6 @@ import { type Dir, tempDir } from './helpers/tempDir.ts';
 /** Every interleaving two 'a' and two 'b' writes can produce. */
 const INTERLEAVED_AB = ['abab', 'abba', 'baab', 'baba'];
 
-// The tasks' writes only interleave if the second task starts before the first
-// one's delay is over, and with the whole suite running at once a start can
-// lag well past the default 150ms.
-vi.stubEnv('RUNSET_TEST_DELAY', '500');
-
 describe('[parallel] runset runs a -p group all at once', () => {
   describe('should run commands in parallel', () => {
     test('library API', async () => {
