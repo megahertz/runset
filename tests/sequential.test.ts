@@ -2,7 +2,6 @@ import { describe, expect, test } from 'vitest';
 import { Run, runset } from '../src/index.ts';
 import {
   delay,
-  isWindows,
   run,
   runCli,
   runCliAndKill,
@@ -132,51 +131,66 @@ describe('[sequential] runset runs commands one after another by default', () =>
     });
   });
 
-  test.skipIf(isWindows)(
-    'should kill running children when runset itself is killed',
-    async () => {
-      await using dir = await tempDir();
-      // Long enough to still be running at the kill, short enough to have
-      // written its second half by the time we look, had it survived.
-      await runCliAndKill('test-task:append2 a', { cwd: dir.path, env });
-      await delay(800);
+  test('should kill running children when runset itself is killed', async () => {
+    if (process.platform === 'win32') {
+      // Windows cannot signal another process: a SIGINT or SIGTERM sent to
+      // runset ends it outright, before it can pass anything on.
+      return;
+    }
 
-      // 'a' means the child was killed before it wrote its second half; nothing
-      // at all means it never got far enough to write.
-      expect(await dir.result()).toBeOneOf([undefined, 'a']);
-    },
-  );
+    await using dir = await tempDir();
+    // Long enough to still be running at the kill, short enough to have
+    // written its second half by the time we look, had it survived.
+    await runCliAndKill('test-task:append2 a', { cwd: dir.path, env });
+    await delay(800);
 
-  test.skipIf(isWindows)(
-    'should pass the signal it was given on to the commands',
-    async () => {
-      await using dir = await tempDir();
-      await runCliAndKill('test-task:signal', {
-        after: 'ready',
-        cwd: dir.path,
-      });
+    // 'a' means the child was killed before it wrote its second half; nothing
+    // at all means it never got far enough to write.
+    expect(await dir.result()).toBeOneOf([undefined, 'a']);
+  });
 
-      // Ctrl+C means SIGINT to the commands too: a command that handles only one
-      // of the two is likeliest to be listening for the one the user sent.
-      expect(await dir.result()).toBe('SIGINT');
-    },
-  );
+  test('should pass the signal it was given on to the commands', async () => {
+    if (process.platform === 'win32') {
+      // Windows cannot signal another process: a SIGINT or SIGTERM sent to
+      // runset ends it outright, before it can pass anything on.
+      return;
+    }
 
-  test.skipIf(isWindows)(
-    'should send SIGTERM when that is what it was given',
-    async () => {
-      await using dir = await tempDir();
-      await runCliAndKill('test-task:signal', {
-        after: 'ready',
-        cwd: dir.path,
-        signal: 'SIGTERM',
-      });
+    await using dir = await tempDir();
+    await runCliAndKill('test-task:signal', {
+      after: 'ready',
+      cwd: dir.path,
+    });
 
-      expect(await dir.result()).toBe('SIGTERM');
-    },
-  );
+    // Ctrl+C means SIGINT to the commands too: a command that handles only one
+    // of the two is likeliest to be listening for the one the user sent.
+    expect(await dir.result()).toBe('SIGINT');
+  });
 
-  test.skipIf(isWindows)('should say which signal ended the run', async () => {
+  test('should send SIGTERM when that is what it was given', async () => {
+    if (process.platform === 'win32') {
+      // Windows cannot signal another process: a SIGINT or SIGTERM sent to
+      // runset ends it outright, before it can pass anything on.
+      return;
+    }
+
+    await using dir = await tempDir();
+    await runCliAndKill('test-task:signal', {
+      after: 'ready',
+      cwd: dir.path,
+      signal: 'SIGTERM',
+    });
+
+    expect(await dir.result()).toBe('SIGTERM');
+  });
+
+  test('should say which signal ended the run', async () => {
+    if (process.platform === 'win32') {
+      // Windows cannot signal another process: a SIGINT or SIGTERM sent to
+      // runset ends it outright, before it can pass anything on.
+      return;
+    }
+
     await using dir = await tempDir();
     const result = await runCliAndKill('test-task:append2 a', {
       cwd: dir.path,
@@ -188,23 +202,30 @@ describe('[sequential] runset runs commands one after another by default', () =>
     );
   });
 
-  test.skipIf(isWindows)(
-    'should say it once, not again as the run ends',
-    async () => {
-      await using dir = await tempDir();
-      const result = await runCliAndKill('test-task:append2 a', {
-        cwd: dir.path,
-        env,
-        signal: 'SIGTERM',
-      });
+  test('should say it once, not again as the run ends', async () => {
+    if (process.platform === 'win32') {
+      // Windows cannot signal another process: a SIGINT or SIGTERM sent to
+      // runset ends it outright, before it can pass anything on.
+      return;
+    }
 
-      expect(result.stderr).toBe(
-        'runset: SIGTERM received, stopping the run\n',
-      );
-    },
-  );
+    await using dir = await tempDir();
+    const result = await runCliAndKill('test-task:append2 a', {
+      cwd: dir.path,
+      env,
+      signal: 'SIGTERM',
+    });
 
-  test.skipIf(isWindows)('should name SIGTERM too', async () => {
+    expect(result.stderr).toBe('runset: SIGTERM received, stopping the run\n');
+  });
+
+  test('should name SIGTERM too', async () => {
+    if (process.platform === 'win32') {
+      // Windows cannot signal another process: a SIGINT or SIGTERM sent to
+      // runset ends it outright, before it can pass anything on.
+      return;
+    }
+
     await using dir = await tempDir();
     const result = await runCliAndKill('test-task:append2 a', {
       cwd: dir.path,

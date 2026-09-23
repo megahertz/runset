@@ -1,7 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { runset } from '../src/index.ts';
 import {
-  isWindows,
   OUTLIVES_A_STOP,
   run,
   runCli,
@@ -133,8 +132,14 @@ describe('[exit] what a command s exit does to the run', () => {
     expect(await dir.result()).toBeOneOf([undefined, 'a']);
   });
 
-  describe.skipIf(isWindows)('a signal aimed at runset', () => {
+  describe('a signal aimed at runset', () => {
     test('SIGINT exits 130, the code a shell reports for it', async () => {
+      if (process.platform === 'win32') {
+        // Windows cannot signal another process: a SIGINT or SIGTERM sent to
+        // runset ends it outright, before it can pass anything on.
+        return;
+      }
+
       await using dir = await tempDir();
       const { code } = await runCliAndKill('test-task:signal', {
         after: 'ready',
@@ -147,6 +152,12 @@ describe('[exit] what a command s exit does to the run', () => {
     });
 
     test('SIGTERM exits 143', async () => {
+      if (process.platform === 'win32') {
+        // Windows cannot signal another process: a SIGINT or SIGTERM sent to
+        // runset ends it outright, before it can pass anything on.
+        return;
+      }
+
       await using dir = await tempDir();
       const { code } = await runCliAndKill('test-task:signal', {
         after: 'ready',
@@ -158,6 +169,12 @@ describe('[exit] what a command s exit does to the run', () => {
     });
 
     test('it still ends a run that was carrying a failure', async () => {
+      if (process.platform === 'win32') {
+        // Windows cannot signal another process: a SIGINT or SIGTERM sent to
+        // runset ends it outright, before it can pass anything on.
+        return;
+      }
+
       await using dir = await tempDir();
       // `--on-failure continue` means the failure did not stop the run, so the
       // signal is what did — and 130 is the answer to "why did this stop?".
@@ -170,6 +187,12 @@ describe('[exit] what a command s exit does to the run', () => {
     });
 
     test('but a run already stopped by a failure keeps that code', async () => {
+      if (process.platform === 'win32') {
+        // Windows cannot signal another process: a SIGINT or SIGTERM sent to
+        // runset ends it outright, before it can pass anything on.
+        return;
+      }
+
       await using dir = await tempDir();
       // The failure ends the run; the stubborn command ignores the SIGTERM it
       // is sent, so the Ctrl+C that follows is a second signal, not a first.
@@ -188,6 +211,12 @@ describe('[exit] what a command s exit does to the run', () => {
     });
 
     test('a successful `on-success=stop` run still exits 0', async () => {
+      if (process.platform === 'win32') {
+        // Windows cannot signal another process: a SIGINT or SIGTERM sent to
+        // runset ends it outright, before it can pass anything on.
+        return;
+      }
+
       await using dir = await tempDir();
       const { code } = await runCli(
         ['--on-success', 'stop', '-p', 'echo done', 'test-task:append2 a'],
@@ -199,23 +228,32 @@ describe('[exit] what a command s exit does to the run', () => {
   });
 
   describe('--kill-timeout', () => {
-    test.skipIf(isWindows)(
-      'a command that ignores SIGTERM is killed anyway',
-      async () => {
-        await using dir = await tempDir();
-        const started = Date.now();
-        const { code } = await runCliAndKill(
-          ['--kill-timeout', '400', 'test-task:stubborn'],
-          { after: 'stubborn', cwd: dir.path, signal: 'SIGINT' },
-        );
+    test('a command that ignores SIGTERM is killed anyway', async () => {
+      if (process.platform === 'win32') {
+        // Windows cannot signal another process: a SIGINT or SIGTERM sent to
+        // runset ends it outright, before it can pass anything on.
+        return;
+      }
 
-        // Without the escalation this run would never end.
-        expect(code).toBe(130);
-        expect(Date.now() - started).toBeLessThan(5000);
-      },
-    );
+      await using dir = await tempDir();
+      const started = Date.now();
+      const { code } = await runCliAndKill(
+        ['--kill-timeout', '400', 'test-task:stubborn'],
+        { after: 'stubborn', cwd: dir.path, signal: 'SIGINT' },
+      );
 
-    test.skipIf(isWindows)('0 leaves no grace period at all', async () => {
+      // Without the escalation this run would never end.
+      expect(code).toBe(130);
+      expect(Date.now() - started).toBeLessThan(5000);
+    });
+
+    test('0 leaves no grace period at all', async () => {
+      if (process.platform === 'win32') {
+        // Windows cannot signal another process: a SIGINT or SIGTERM sent to
+        // runset ends it outright, before it can pass anything on.
+        return;
+      }
+
       await using dir = await tempDir();
       const started = Date.now();
       await runCliAndKill(['--kill-timeout', '0', 'test-task:stubborn'], {
@@ -227,20 +265,23 @@ describe('[exit] what a command s exit does to the run', () => {
       expect(Date.now() - started).toBeLessThan(1500);
     });
 
-    test.skipIf(isWindows)(
-      'a second Ctrl+C does not wait for the timeout',
-      async () => {
-        await using dir = await tempDir();
-        const started = Date.now();
-        const { code } = await runCliAndKillTwice(
-          ['--kill-timeout', '30000', 'test-task:stubborn'],
-          { after: 'stubborn', cwd: dir.path, delay: 300, signal: 'SIGINT' },
-        );
+    test('a second Ctrl+C does not wait for the timeout', async () => {
+      if (process.platform === 'win32') {
+        // Windows cannot signal another process: a SIGINT or SIGTERM sent to
+        // runset ends it outright, before it can pass anything on.
+        return;
+      }
 
-        expect(code).toBe(130);
-        expect(Date.now() - started).toBeLessThan(5000);
-      },
-    );
+      await using dir = await tempDir();
+      const started = Date.now();
+      const { code } = await runCliAndKillTwice(
+        ['--kill-timeout', '30000', 'test-task:stubborn'],
+        { after: 'stubborn', cwd: dir.path, delay: 300, signal: 'SIGINT' },
+      );
+
+      expect(code).toBe(130);
+      expect(Date.now() - started).toBeLessThan(5000);
+    });
 
     test('a value that is not a number is refused', async () => {
       await using dir = await tempDir();

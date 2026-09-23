@@ -1,7 +1,7 @@
 import os from 'node:os';
 import { describe, expect, test } from 'vitest';
 import { runset } from '../src/index.ts';
-import { isWindows, run, runCli, runWithError } from './helpers/cli.ts';
+import { run, runCli, runWithError } from './helpers/cli.ts';
 import { type Dir, tempDir } from './helpers/tempDir.ts';
 
 describe('[fail] runset reports failures', () => {
@@ -271,19 +271,22 @@ describe('[fail] runset reports failures', () => {
       expect(code).toBe(1);
     });
 
-    test.skipIf(isWindows)(
-      'a command killed by a signal is reported as 128 + the signal',
-      async () => {
-        await using dir = await tempDir();
-        // The abort prints a stack trace of its own, and it is the exit code
-        // that is being asked about — so the run throws that output away.
-        await expect(
-          runset('test-task:abort', { cwd: dir.path, stderr: 'none' }),
-        ).rejects.toMatchObject({
-          exitCode: 128 + os.constants.signals.SIGABRT,
-        });
-      },
-    );
+    test('a command killed by a signal is reported as 128 + the signal', async () => {
+      if (process.platform === 'win32') {
+        // Windows has no signals: an abort ends the process with an exit code
+        // of its own, not SIGABRT.
+        return;
+      }
+
+      await using dir = await tempDir();
+      // The abort prints a stack trace of its own, and it is the exit code
+      // that is being asked about — so the run throws that output away.
+      await expect(
+        runset('test-task:abort', { cwd: dir.path, stderr: 'none' }),
+      ).rejects.toMatchObject({
+        exitCode: 128 + os.constants.signals.SIGABRT,
+      });
+    });
 
     test('an unknown command name falls through to the shell and fails there', async () => {
       await using dir = await tempDir();

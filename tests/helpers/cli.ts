@@ -38,9 +38,6 @@ function toOptions(target: CliTarget): CliOptions {
  */
 export const OUTLIVES_A_STOP = { RUNSET_TEST_DELAY: '3000' };
 
-/** Whether the suite is running on Windows, for `test.skipIf`. */
-export const isWindows = process.platform === 'win32';
-
 /**
  * What the child's streams said, with `cmd.exe`'s CRLF line endings read as
  * the `\n` every assertion is written against.

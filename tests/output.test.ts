@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { runset } from '../src/index.ts';
-import { isWindows, run, runWithError } from './helpers/cli.ts';
+import { run, runWithError } from './helpers/cli.ts';
 import { tempDir } from './helpers/tempDir.ts';
 
 /** `test-task:delayed <name> <ms>` writes `[name]` now and `__[name]` later. */
@@ -414,18 +414,20 @@ describe('[output] --show-command / --show-exit-code report each command', () =>
     expect(stdout).toBe('\u001B[34mrun\u001B[39m true\n');
   });
 
-  test.skipIf(isWindows)(
-    '--show-exit-code names the signal that killed a command',
-    async () => {
-      await using dir = await tempDir();
-      const { stdout } = await runWithError(
-        ['--show-exit-code', 'kill -TERM $$'],
-        dir.path,
-      );
+  test('--show-exit-code names the signal that killed a command', async () => {
+    if (process.platform === 'win32') {
+      // `kill -TERM $$` is POSIX shell; Windows has no signal to send.
+      return;
+    }
 
-      expect(withoutTimes(stdout)).toBe('✗ SIGTERM · <t>  kill -TERM $$\n');
-    },
-  );
+    await using dir = await tempDir();
+    const { stdout } = await runWithError(
+      ['--show-exit-code', 'kill -TERM $$'],
+      dir.path,
+    );
+
+    expect(withoutTimes(stdout)).toBe('✗ SIGTERM · <t>  kill -TERM $$\n');
+  });
 
   test('--show-exit-code tells a command runset stopped from a failure', async () => {
     await using dir = await tempDir();

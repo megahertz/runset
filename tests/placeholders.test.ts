@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { isWindows, run } from './helpers/cli.ts';
+import { run } from './helpers/cli.ts';
 import { type Dir, tempDir } from './helpers/tempDir.ts';
 
 describe('[placeholders] {1}, {@} and {*} pull from runset s own arguments', () => {
@@ -171,17 +171,19 @@ describe('[placeholders] {1}, {@} and {*} pull from runset s own arguments', () 
       expect(both.stdout).toMatch(/test/);
     });
 
-    test.skipIf(isWindows)(
-      'a shell variable is not a placeholder',
-      async () => {
-        await using dir = await tempDir();
-        // Written out so the source has no literal `${`, which lint rejects.
-        const variable = `${'$'}{HOME:-fallback}`;
-        const { stdout } = await run([`echo ${variable}`], dir.path);
-        expect(stdout).not.toBe('');
-        expect(stdout).not.toMatch(/\$\{HOME/);
-      },
-    );
+    test('a shell variable is not a placeholder', async () => {
+      if (process.platform === 'win32') {
+        // `${HOME:-fallback}` is POSIX shell; cmd.exe has no such expansion.
+        return;
+      }
+
+      await using dir = await tempDir();
+      // Written out so the source has no literal `${`, which lint rejects.
+      const variable = `${'$'}{HOME:-fallback}`;
+      const { stdout } = await run([`echo ${variable}`], dir.path);
+      expect(stdout).not.toBe('');
+      expect(stdout).not.toMatch(/\$\{HOME/);
+    });
   });
 
   test('command names no longer substitute positional placeholders', async () => {

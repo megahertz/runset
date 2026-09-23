@@ -27,24 +27,26 @@ describe('[config] color autodetection', () => {
     }).color;
   }
 
-  // A Windows console reports 24-bit color whatever TERM says.
-  test.skipIf(process.platform === 'win32')(
-    'on when everything runset writes to is a terminal',
-    () => {
-      expect(colorFor({ stderr: true, stdout: true })).toBe('basic');
-    },
-  );
+  test('on when everything runset writes to is a terminal', () => {
+    if (process.platform === 'win32') {
+      // A Windows console reports 24-bit color whatever TERM says.
+      return;
+    }
 
-  // A Windows console reports 24-bit color whatever TERM says.
-  test.skipIf(process.platform === 'win32')(
-    'soft where the terminal shows 256 colors, never all',
-    () => {
-      const tty = { stderr: true, stdout: true };
-      expect(colorFor(tty, { TERM: 'xterm' })).toBe('basic');
-      expect(colorFor(tty, { TERM: 'xterm-256color' })).toBe('soft');
-      expect(colorFor(tty, { COLORTERM: 'truecolor' })).toBe('soft');
-    },
-  );
+    expect(colorFor({ stderr: true, stdout: true })).toBe('basic');
+  });
+
+  test('soft where the terminal shows 256 colors, never all', () => {
+    if (process.platform === 'win32') {
+      // A Windows console reports 24-bit color whatever TERM says.
+      return;
+    }
+
+    const tty = { stderr: true, stdout: true };
+    expect(colorFor(tty, { TERM: 'xterm' })).toBe('basic');
+    expect(colorFor(tty, { TERM: 'xterm-256color' })).toBe('soft');
+    expect(colorFor(tty, { COLORTERM: 'truecolor' })).toBe('soft');
+  });
 
   test('a mode is taken as given, wherever it comes from', () => {
     const pipe = { stderr: false, stdout: false };
