@@ -195,7 +195,7 @@ describe('[labels] runset tags interleaved output with its command', () => {
           env: { FORCE_COLOR: '2', NO_COLOR: '' },
         };
         const command = `echo hi::label=api,color=${foreground},bg-color=${background}`;
-        const colored = await run(['--color', command], target);
+        const colored = await run(['--color', 'all', command], target);
         expect(colored.stdout).toBe(
           `\u001B[48;5;${bgIndex}m\u001B[38;5;${fgIndex}mapi\u001B[39m\u001B[49m hi\n`,
         );
@@ -207,7 +207,11 @@ describe('[labels] runset tags interleaved output with its command', () => {
     test('--color turns the label into a filled block', async () => {
       await using dir = await tempDir();
       const { stdout } = await run(
-        ['--color', 'echo hi::label=build,color=white,bg-color=bgGreen'],
+        [
+          '--color',
+          'basic',
+          'echo hi::label=build,color=white,bg-color=bgGreen',
+        ],
         dir.path,
       );
 
@@ -235,6 +239,7 @@ describe('[labels] runset tags interleaved output with its command', () => {
       const { stdout } = await run(
         [
           '--color',
+          'basic',
           '--labels',
           'custom',
           '-p',
@@ -250,7 +255,7 @@ describe('[labels] runset tags interleaved output with its command', () => {
     test('a name runset does not know is ignored, not fatal', async () => {
       await using dir = await tempDir();
       const { stdout } = await run(
-        ['--color', 'echo hi::label=x,color=chartreuse'],
+        ['--color', 'basic', 'echo hi::label=x,color=chartreuse'],
         dir.path,
       );
 
@@ -260,7 +265,7 @@ describe('[labels] runset tags interleaved output with its command', () => {
     test('parallel commands are handed colors of their own', async () => {
       await using dir = await tempDir();
       const { stdout } = await run(
-        ['--color', '-p', 'echo one', 'echo two'],
+        ['--color', 'basic', '-p', 'echo one', 'echo two'],
         dir.path,
       );
 
@@ -391,7 +396,7 @@ describe('[labels] runset tags interleaved output with its command', () => {
      */
     function backgrounds(...commands: string[]): string[] {
       const runner = Run.fromConfigJs({
-        color: false,
+        color: 'none',
         commands,
         cwd: fixturePath(),
         parallel: true,
@@ -426,7 +431,7 @@ describe('[labels] runset tags interleaved output with its command', () => {
     test('a color the user chose is not handed to anything else', async () => {
       await using dir = await tempDir();
       const runner = Run.fromConfigJs({
-        color: false,
+        color: 'none',
         commands: [
           { bgColor: wants('db'), command: 'echo a' },
           'echo b::label=db',

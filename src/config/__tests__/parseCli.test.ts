@@ -35,8 +35,8 @@ describe('[parseCli]', () => {
   });
 
   test('--no-color negates a switch', () => {
-    expect(parseCli(['--no-color', 'foo']).options.color).toBe(false);
-    expect(parseCli(['--color', 'foo']).options.color).toBe(true);
+    expect(parseCli(['--no-color', 'foo']).options.color).toBe('none');
+    expect(parseCli(['--color', 'soft', 'foo']).options.color).toBe('soft');
   });
 
   test('--name=value works as well as --name value', () => {

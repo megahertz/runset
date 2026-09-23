@@ -407,7 +407,7 @@ describe('[output] --show-command / --show-exit-code report each command', () =>
   test('--show-command paints "run" blue', async () => {
     await using dir = await tempDir();
     const { stdout } = await run(
-      ['--color', '--show-command', 'true'],
+      ['--color', 'basic', '--show-command', 'true'],
       dir.path,
     );
 
@@ -443,6 +443,7 @@ describe('[output] --show-command / --show-exit-code report each command', () =>
     const { stdout } = await runWithError(
       [
         '--color',
+        'basic',
         '--show-exit-code',
         '--labels',
         'none',
@@ -463,6 +464,7 @@ describe('[output] --show-command / --show-exit-code report each command', () =>
     const { stdout } = await runWithError(
       [
         '--color',
+        'basic',
         '--show-exit-code',
         '--on-failure',
         'continue',

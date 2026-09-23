@@ -29,7 +29,7 @@ export class Run {
     this.logger = new Logger(
       config.logLevel,
       config.destinations.stderr,
-      config.color,
+      config.color !== 'none',
     );
 
     for (const warning of config.warnings) {
@@ -157,7 +157,7 @@ export class Run {
 
   /** The tally, then a row per failure, labelled as its output was. */
   private failureReport(): string {
-    const { color } = this.config;
+    const color = this.config.color !== 'none';
     const red = (text: string): string => (color ? paint(text, ['red']) : text);
 
     const rows = this.failed().map((process) => {

@@ -14,7 +14,7 @@ const FLAGS: FlagSpec[] = [
   { name: 'config', short: 'c', takesValue: true },
   { name: 'cwd', takesValue: true },
   { name: 'env', short: 'e', takesValue: true },
-  { name: 'color', takesValue: false },
+  { name: 'color', negated: 'none', takesValue: true },
   { name: 'logLevel', takesValue: true },
   { name: 'dryRun', takesValue: false },
   { name: 'stdout', takesValue: true },
@@ -100,8 +100,8 @@ export function parseCli(rawArgv: string[]): ParsedCli {
 
     if (flag === undefined && /^no-?[A-Za-z]/.test(name)) {
       const negated = findLongFlag(name.replace(/^no-?/, ''));
-      if (negated && !negated.takesValue) {
-        setOption(negated, false);
+      if (negated && (!negated.takesValue || negated.negated !== undefined)) {
+        setOption(negated, negated.negated ?? false);
         return;
       }
     }
@@ -175,7 +175,7 @@ function findShortFlag(letter: string): FlagSpec | undefined {
 
 /** Run-wide options a CLI flag can set. */
 export interface CliOptions {
-  color?: boolean;
+  color?: string;
   config?: string;
   cwd?: string;
   dryRun?: boolean;
@@ -208,6 +208,8 @@ export interface ParsedCli {
 
 interface FlagSpec {
   name: 'help' | 'parallel' | 'serial' | 'version' | keyof CliOptions;
+  /** The value `--no-name` gives a flag that takes one. */
+  negated?: string;
   short?: string;
   takesValue: boolean;
 }

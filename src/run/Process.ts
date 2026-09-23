@@ -46,8 +46,8 @@ export class Process {
     this.command = command;
     this.context = context;
 
-    const { color, destinations, envColumns, formatLabel, wrap } =
-      context.config;
+    const { destinations, envColumns, formatLabel, wrap } = context.config;
+    const color = context.config.color !== 'none';
     const sink = (stream: 'stderr' | 'stdout') =>
       new OutputSink(
         command[stream],
@@ -89,7 +89,8 @@ export class Process {
       this.started = true;
 
       if (this.context.config.showCommand) {
-        const run = this.context.config.color ? paint('run', ['blue']) : 'run';
+        const run =
+          this.context.config.color === 'none' ? 'run' : paint('run', ['blue']);
         this.stdout.writeLine(`${run} ${this.command.command}`);
       }
 
@@ -156,7 +157,7 @@ export class Process {
    * in gray, so it can be found without its label.
    */
   private exitLine(): string {
-    const { color } = this.context.config;
+    const color = this.context.config.color !== 'none';
     const duration = formatDuration(performance.now() - this.attemptStart);
 
     if (this.exitCode === 0 && this.signal === undefined && !this.terminated) {
@@ -203,7 +204,10 @@ export class Process {
       return {};
     }
 
-    const width = prefixWidth(this.command, this.context.config.color);
+    const width = prefixWidth(
+      this.command,
+      this.context.config.color !== 'none',
+    );
     return { COLUMNS: String(Math.max(1, columns - width)) };
   }
 

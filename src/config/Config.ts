@@ -1,6 +1,7 @@
 import path from 'node:path';
 import { WriteStream } from 'node:tty';
 import type {
+  ColorMode,
   CommandDefinition,
   ConfigJs,
   ConfigJsExport,
@@ -12,6 +13,7 @@ import type {
   Std,
 } from '../types.ts';
 import { isCommandSettings } from '../types.ts';
+import type { ColorLevel } from '../utils/colors.ts';
 import { ConfigError } from '../utils/errors.ts';
 import { isTerminal, parseColumns } from '../utils/terminal.ts';
 import { loadConfigJs, unwrapConfigJs } from './loadConfig.ts';
@@ -30,6 +32,13 @@ import {
 const DEFAULT_KILL_TIMEOUT = 5000;
 const LOG_LEVELS = new Set<LogLevel>(['error', 'warn', 'info', 'debug']);
 const LABEL_MODES = new Set<LabelMode>(['none', 'auto', 'custom', 'all']);
+const COLOR_MODES = new Set<ColorMode>([
+  'auto',
+  'none',
+  'basic',
+  'soft',
+  'all',
+]);
 
 const KNOWN_KEYS = new Set<keyof ConfigJs>([
   'color',
@@ -85,9 +94,7 @@ export class Config {
   readonly killTimeout: number;
   readonly onSuccess: ExitAction;
   readonly onFailure: ExitAction;
-  readonly color: boolean;
-  /** Whether the terminal renders 256 colors, which label shades need. */
-  readonly extendedColor: boolean;
+  readonly color: ColorLevel;
   readonly parallel: boolean;
   readonly recursive: boolean;
   readonly showCommand: boolean;
@@ -162,8 +169,6 @@ export class Config {
     this.dryRun = options.dryRun ?? file.dryRun ?? false;
     this.logLevel = (options.logLevel as LogLevel) ?? file.logLevel ?? 'info';
     this.color = resolveColor(options.color ?? file.color, env, destinations);
-    this.extendedColor =
-      this.color && WriteStream.prototype.getColorDepth(env) >= 8;
     this.formatLabel = file.formatLabel;
 
     // A setting may name one axis and leave the other to what it layers onto;
@@ -190,7 +195,7 @@ export class Config {
       oneOfError('logLevel', this.logLevel, LOG_LEVELS),
       numberError('jobs', this.jobs, 1),
       numberError('killTimeout', this.killTimeout, 0),
-      booleanError('color', this.color),
+      oneOfError('color', this.color, COLOR_MODES),
       booleanError('parallel', this.parallel),
       booleanError('recursive', this.recursive),
       booleanError('showCommand', this.showCommand),
@@ -228,15 +233,31 @@ export class Config {
   }
 }
 
-/** Flag, then `NO_COLOR`/`FORCE_COLOR`, then whether both streams are TTYs. */
+/**
+ * A mode as given; under `auto`, whether to color at all, then `soft` where
+ * the terminal shows 256 colors. `all` is only ever asked for. Anything else is
+ * left for `validate` to refuse.
+ */
 function resolveColor(
-  flag: boolean | undefined,
+  mode: string | undefined,
+  env: NodeJS.ProcessEnv,
+  destinations: Destinations,
+): ColorLevel {
+  if (mode !== undefined && mode !== 'auto') {
+    return mode as ColorLevel;
+  }
+  if (!detectColor(env, destinations)) {
+    return 'none';
+  }
+
+  return WriteStream.prototype.getColorDepth(env) >= 8 ? 'soft' : 'basic';
+}
+
+/** `NO_COLOR`/`FORCE_COLOR`, then whether both streams are TTYs. */
+function detectColor(
   env: NodeJS.ProcessEnv,
   destinations: Destinations,
 ): boolean {
-  if (flag !== undefined) {
-    return flag;
-  }
   if (env.NO_COLOR !== undefined && env.NO_COLOR !== '') {
     return false;
   }

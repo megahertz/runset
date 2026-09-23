@@ -17,6 +17,13 @@ export const EXIT_ACTIONS = new Set<ExitAction>([
 
 export type LogLevel = 'debug' | 'error' | 'info' | 'warn';
 
+/**
+ * How much color runset uses: `basic` is the terminal's 16 theme colors,
+ * `soft` the light 256-color shades, and `all` those plus the deep ones.
+ * `auto` is `basic` or `soft`, whichever the terminal shows, or `none`.
+ */
+export type ColorMode = 'all' | 'auto' | 'basic' | 'none' | 'soft';
+
 /** Which commands get a label in front of their output: see `--labels`. */
 export type LabelMode = 'all' | 'auto' | 'custom' | 'none';
 
@@ -99,7 +106,8 @@ export type CommandDefinition =
 
 /** What a user writes in `runset.config.*`, or hands to `runset({ … })`. */
 export interface ConfigJs {
-  color?: boolean;
+  /** Default: `'auto'`. */
+  color?: ColorMode;
   /** Named commands, resolved before `package.json` scripts. An entry may be a list. */
   commandDictionary?: Record<string, CommandDefinition | CommandDefinition[]>;
   commands?: CommandDefinition[];

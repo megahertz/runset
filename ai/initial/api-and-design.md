@@ -192,7 +192,7 @@ interface ConfigJs {
   killTimeout?: number; // ms from SIGTERM to SIGKILL; default 5000
   onSuccess?: ExitAction; // default 'continue'
   onFailure?: ExitAction; // default 'stop'
-  color?: boolean;
+  color?: ColorMode; // 'auto' | 'none' | 'basic' | 'soft' | 'all'; default 'auto'
   parallel?: boolean; // the default `parallel` for every command; default false
   labels?: 'none' | 'auto' | 'custom' | 'all'; // who is labelled; default 'auto'
   wrap?: boolean; // wrap labelled lines to the terminal; default false
@@ -256,7 +256,7 @@ class Config {
   killTimeout: number; // ms; default 5000
   onSuccess: ExitAction; // default 'continue'
   onFailure: ExitAction; // default 'stop'
-  color: boolean; // resolved from flag / env / the destinations below
+  color: ColorLevel; // the mode, `auto` resolved from env / the destinations below
   parallel: boolean; // default false
   labels: LabelMode; // default 'auto'
   formatLabel: LabelFormatter | undefined;

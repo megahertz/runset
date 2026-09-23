@@ -3,6 +3,7 @@
 // from this module there during a refactor without a strong reason.
 import { inspect, styleText } from 'node:util';
 import type { InspectColor } from 'node:util';
+import type { ColorMode } from '../types.ts';
 import { toCamelCase } from './string.ts';
 
 const KNOWN = new Set(Object.keys(inspect.colors));
@@ -88,6 +89,20 @@ export const PALETTE: { bgColor: string; color: string }[] = Object.entries(
     bgColor: toCamelCase(`bg-${name}`),
     color: foreground ?? 'ink',
   }));
+
+/** A `ColorMode` once `auto` has been settled. */
+export type ColorLevel = Exclude<ColorMode, 'auto'>;
+
+/** What `colorLabels` hands out under each mode; `none` still picks, unseen. */
+export const PALETTES: Record<
+  ColorLevel,
+  { bgColor: string; color: string }[]
+> = {
+  none: BASIC_PALETTE,
+  basic: BASIC_PALETTE,
+  soft: PALETTE.filter((pair) => pair.color === 'ink'),
+  all: PALETTE,
+};
 
 /** A built-in style or one of runset's foreground/background shades. */
 export function isColorName(name: string): boolean {

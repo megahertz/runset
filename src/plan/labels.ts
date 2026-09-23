@@ -1,10 +1,5 @@
 import type { Command } from '../types.ts';
-import {
-  BASIC_PALETTE,
-  fallbackColor,
-  PALETTE,
-  paletteIndex,
-} from '../utils/colors.ts';
+import { fallbackColor, paletteIndex, PALETTES } from '../utils/colors.ts';
 import type { Plan } from './plan.ts';
 import { groupByStage } from './stages.ts';
 
@@ -49,13 +44,13 @@ export function assignAutoLabels({ commands, config }: Plan): void {
 
 /**
  * Gives each labelled command without colors of its own a palette pair: the
- * one its label hashes to, or the next free when that is taken. On a basic
- * terminal every shade is first swapped for its theme color, so nothing past
- * the plan has to know how many colors the terminal has.
+ * one its label hashes to, or the next free when that is taken, from the
+ * palette of `config.color`. Without shades every one is first swapped for its
+ * theme color, so nothing past the plan has to know how many colors there are.
  */
 export function colorLabels({ commands, config }: Plan): void {
-  const palette = config.extendedColor ? PALETTE : BASIC_PALETTE;
-  if (!config.extendedColor) {
+  const palette = PALETTES[config.color];
+  if (config.color === 'none' || config.color === 'basic') {
     for (const command of commands) {
       command.bgColor = fallbackColor(command.bgColor);
       command.color = fallbackColor(command.color);

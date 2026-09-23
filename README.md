@@ -86,13 +86,21 @@ command again without a delay or retry limit.
 
 Commands running together get colored labels automatically, so you can tell
 which command wrote each line. Set your own with `::label=api,color=cyan`. Use
-`--no-color` for plain text or `--labels none` to hide labels.
+`--color none` for plain text or `--labels none` to hide labels.
 
-On 256-color terminals, automatic labels use 36 backgrounds: 24 soft, vivid
-shades with charcoal text and 12 deeper shades with off-white text. Basic
-terminals use the terminal's theme colors. Color support is detected from the
-terminal environment; `FORCE_COLOR=2` enables the expanded palette explicitly.
-`--no-color` still disables all runset colors.
+runset has 36 label backgrounds for 256-color terminals: 24 soft, vivid shades
+with charcoal text and 12 deeper shades with off-white text. `--color <mode>`
+(or `color` in a config file) picks how many of them automatic labels use:
+
+| Mode    | Automatic labels                                           |
+| ------- | ---------------------------------------------------------- |
+| `auto`  | `soft` on 256-color terminals, `basic` on others (default) |
+| `none`  | no color, `[label]`                                        |
+| `basic` | the terminal's 16 theme colors                             |
+| `soft`  | the 24 soft shades                                         |
+| `all`   | the soft and the deeper shades                             |
+
+`auto` reads the terminal environment, so `FORCE_COLOR` and `NO_COLOR` apply.
 
 You can also choose a shade: `"api::label=server,color=ink,bg-color=bgCoral"`.
 Available shades are `mint`, `sky`, `rose`, `amber`, `lavender`, `aqua`,

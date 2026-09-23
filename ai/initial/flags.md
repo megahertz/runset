@@ -122,7 +122,7 @@ $ runset -p "api::label=api,color=white,bg-color=bgGreen" dash
 ```
 
 Names are the ones `node:util`'s `styleText` knows; an unrecognised one is
-ignored rather than fatal. With color off (`--no-color`, a pipe, `NO_COLOR`) a
+ignored rather than fatal. With color off (`--color none`, a pipe, `NO_COLOR`) a
 prefix falls back to `[label] `, so redirected output stays just as readable.
 
 A prefixed line is written only once it is whole: a half-written line waits for
@@ -418,8 +418,9 @@ not get to keep the port it was holding.
 - `--cwd <dir>` — working directory for tasks
 - `-e, --env <NAME=value>` — add a variable to every command's environment;
   repeatable (`runset -e FORCE_COLOR=1 -e 'DEBUG=*' start`)
-- `--color` / `--no-color` — force color on/off. Priority: CLI flag >
-  `FORCE_COLOR` / `NO_COLOR` env > tty autodetection
+- `--color <mode>` — `auto` (default) | `none` | `basic` | `soft` | `all`;
+  config: `color: <mode>`. `--no-color` is still read as `--color none`,
+  unlisted. Under `auto`: `FORCE_COLOR` / `NO_COLOR` env > tty autodetection
 - `--log-level <level>` — `error` | `warn` | `info` (default) | `debug`
 - `--dry-run` — print the resolved process tree and options; run nothing
 
@@ -427,6 +428,14 @@ not get to keep the port it was holding.
 one: runset's own messages go to stderr while the commands' output goes to
 stdout, and escape codes are only wanted where something is there to render
 them. Either of them being a file or a pipe settles it for both.
+
+The mode is how much color the automatic labels are given: `basic` is the
+terminal's 16 theme colors, `soft` the 24 light 256-color shades with dark text,
+and `all` those and the 12 deep ones with light text. `auto` settles on `none`,
+`basic`, or `soft` on 256 colors; `all` is never detected, only asked for. Any
+other mode is taken as given, whatever the terminal says. A mode only narrows
+what runset hands out: a shade a command names for itself is still painted,
+unless the mode is `basic`, where it falls back to its theme color.
 
 ### `--dry-run`
 

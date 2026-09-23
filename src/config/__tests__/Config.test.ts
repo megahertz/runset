@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'vitest';
+import type { ColorLevel } from '../../utils/colors.ts';
 import { createConfig } from '../Config.ts';
 import { parseCli } from '../parseCli.ts';
 
@@ -12,10 +13,11 @@ describe('[config] color autodetection', () => {
     destinations: { stderr: boolean; stdout: boolean },
     env: NodeJS.ProcessEnv = {},
     argv: string[] = ['echo hi'],
-  ): boolean {
+    configJs: object = {},
+  ): ColorLevel {
     return createConfig({
       cli: parseCli(argv),
-      configJs: {},
+      configJs,
       cwd: process.cwd(),
       destinations: {
         stderr: stream(destinations.stderr),
@@ -26,26 +28,51 @@ describe('[config] color autodetection', () => {
   }
 
   test('on when everything runset writes to is a terminal', () => {
-    expect(colorFor({ stderr: true, stdout: true })).toBe(true);
+    expect(colorFor({ stderr: true, stdout: true })).toBe('basic');
+  });
+
+  test('soft where the terminal shows 256 colors, never all', () => {
+    const tty = { stderr: true, stdout: true };
+    expect(colorFor(tty, { TERM: 'xterm' })).toBe('basic');
+    expect(colorFor(tty, { TERM: 'xterm-256color' })).toBe('soft');
+    expect(colorFor(tty, { COLORTERM: 'truecolor' })).toBe('soft');
+  });
+
+  test('a mode is taken as given, wherever it comes from', () => {
+    const pipe = { stderr: false, stdout: false };
+    expect(colorFor(pipe, {}, ['--color', 'soft', 'echo hi'])).toBe('soft');
+    expect(colorFor(pipe, {}, ['echo hi'], { color: 'all' })).toBe('all');
+    expect(
+      colorFor(pipe, { NO_COLOR: '1' }, ['--color', 'basic', 'echo hi']),
+    ).toBe('basic');
+    expect(
+      colorFor(pipe, { FORCE_COLOR: '2' }, ['--color', 'auto', 'echo hi']),
+    ).toBe('soft');
+  });
+
+  test('an unknown mode is refused', () => {
+    expect(() =>
+      colorFor({ stderr: true, stdout: true }, {}, ['--color', 'shades', 'x']),
+    ).toThrow('color is one of auto, none, basic, soft, all, got "shades".');
   });
 
   test('off when either end is a pipe or a file', () => {
     // runset's own messages go to stderr and the commands' output to stdout;
     // escape codes are only wanted where something renders them.
-    expect(colorFor({ stderr: true, stdout: false })).toBe(false);
-    expect(colorFor({ stderr: false, stdout: true })).toBe(false);
+    expect(colorFor({ stderr: true, stdout: false })).toBe('none');
+    expect(colorFor({ stderr: false, stdout: true })).toBe('none');
   });
 
   test('NO_COLOR outranks a terminal', () => {
     expect(colorFor({ stderr: true, stdout: true }, { NO_COLOR: '1' })).toBe(
-      false,
+      'none',
     );
   });
 
   test('FORCE_COLOR outranks a pipe', () => {
     expect(
       colorFor({ stderr: false, stdout: false }, { FORCE_COLOR: '1' }),
-    ).toBe(true);
+    ).toBe('basic');
   });
 
   test('and the flag outranks both', () => {
@@ -54,7 +81,7 @@ describe('[config] color autodetection', () => {
         '--no-color',
         'echo hi',
       ]),
-    ).toBe(false);
+    ).toBe('none');
   });
 });
 

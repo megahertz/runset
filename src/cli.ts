@@ -38,7 +38,7 @@ General:
   -c, --config <path>        load a config file, skipping the default lookup
       --cwd <dir>            working directory for the commands
   -e, --env <NAME=value>     set an environment variable for every command
-      --color, --no-color    force color on or off
+      --color <mode>         auto | none | basic | soft | all (default: auto)
       --log-level <level>    error | warn | info | debug (default: info)
       --dry-run              print the resolved stages and run nothing
   -h, --help                 show this help
