@@ -19,8 +19,9 @@ export const PALETTE: { bgColor: string; color: string }[] = [
 
 /**
  * Settles who is labelled, per `config.labels`. Under `auto`, a command
- * sharing a stage is named after itself — or gets a blank label holding the
- * column when someone in its stage has a label of their own.
+ * sharing a stage is named after itself, whether or not someone in its stage
+ * has a label of their own. Under `custom` it gets a blank label instead,
+ * holding the column when someone in its stage has one.
  */
 export function assignAutoLabels({ commands, config }: Plan): void {
   const mode = config.labels;
@@ -43,7 +44,7 @@ export function assignAutoLabels({ commands, config }: Plan): void {
         continue;
       }
 
-      if (mode === 'all' || (mode === 'auto' && shared && !labeled)) {
+      if (mode === 'all' || (mode === 'auto' && shared)) {
         command.label = nameOf(command);
         named.push(command);
       } else if (shared && labeled) {

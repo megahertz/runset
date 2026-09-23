@@ -97,9 +97,10 @@ Two labels in one run that want the same one are pulled apart — telling them
 apart is the whole point — and a color you chose yourself is never handed to
 anything else.
 
-A `label` of your own always prints. In a stage where one command has a label,
-the others get a blank one instead of their name, holding the column open so the
-output lines up. `color` and `bgColor` only style a label; they never add one.
+A `label` of your own always prints. Under `auto`, the others in its stage are
+still labelled by their own names, padded to the same width. Under `custom` they
+get a blank label instead, holding the column open so the output lines up.
+`color` and `bgColor` only style a label; they never add one.
 
 | Mode     | Labelled                                          |
 | -------- | ------------------------------------------------- |

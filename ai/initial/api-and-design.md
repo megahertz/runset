@@ -112,13 +112,13 @@ either of them closes the group in front of it the way the flag does.
   it.
 - A command is prefixed exactly when its `label` is non-empty, and the run-wide
   `labels` mode settles who gets one, in a pass over the finished list. Under
-  `auto` a command with no label that shares a stage is named after itself —
-  unless someone in that stage has a label of their own, in which case it gets a
-  blank one that only holds the column. The same pass numbers invented repeats
-  apart, pads them to one width, and gives each a `color`/`bgColor` its label
-  picked out of the palette — the same label lands on the same color in every
-  run, and two labels that want one entry are pulled apart so they still read as
-  two.
+  `auto` a command with no label that shares a stage is named after itself, even
+  when someone in that stage has a label of their own; under `custom` it gets a
+  blank one instead, which only holds the column. The same pass numbers invented
+  repeats apart, pads them to one width, and gives each a `color`/`bgColor` its
+  label picked out of the palette — the same label lands on the same color in
+  every run, and two labels that want one entry are pulled apart so they still
+  read as two.
 - A config's `formatLabel` renders the prefix in place of runset's own, and is
   asked once per line so it may carry a clock or a counter:
 

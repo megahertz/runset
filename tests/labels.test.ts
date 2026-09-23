@@ -130,10 +130,20 @@ describe('[labels] runset tags interleaved output with its command', () => {
       expect(lines(stdout).toSorted()).toEqual(['[api ] one', '[dash] two']);
     });
 
-    test('one label in a group leaves the others a blank one', async () => {
+    test('one label in a group leaves the others their own names', async () => {
       await using dir = await tempDir();
       const { stdout } = await run(
         ['-p', 'echo one::label=api', 'echo two'],
+        dir.path,
+      );
+
+      expect(lines(stdout).toSorted()).toEqual(['[api ] one', '[echo] two']);
+    });
+
+    test('under custom, one label leaves the others a blank one', async () => {
+      await using dir = await tempDir();
+      const { stdout } = await run(
+        ['--labels', 'custom', '-p', 'echo one::label=api', 'echo two'],
         dir.path,
       );
 
@@ -201,7 +211,14 @@ describe('[labels] runset tags interleaved output with its command', () => {
     test('a blank label is left uncolored', async () => {
       await using dir = await tempDir();
       const { stdout } = await run(
-        ['--color', '-p', 'echo one::label=api', 'echo two'],
+        [
+          '--color',
+          '--labels',
+          'custom',
+          '-p',
+          'echo one::label=api',
+          'echo two',
+        ],
         dir.path,
       );
 
@@ -409,8 +426,8 @@ describe('[labels] runset tags interleaved output with its command', () => {
     );
 
     const [first, second] = group.processes;
-    expect(first?.command.label).toBe('api');
-    expect(second?.command.label).toBe('   ');
+    expect(first?.command.label).toBe('api ');
+    expect(second?.command.label).toBe('echo');
     // Only the command that named no colors is given a pair from the palette.
     expect(first?.command.bgColor).not.toBe('');
     expect(second?.command.bgColor).toBe('bgBlue');
