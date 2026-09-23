@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { WriteStream } from 'node:tty';
 import type {
   CommandDefinition,
   ConfigJs,
@@ -85,6 +86,8 @@ export class Config {
   readonly onSuccess: ExitAction;
   readonly onFailure: ExitAction;
   readonly color: boolean;
+  /** Whether the terminal renders 256 colors, which label shades need. */
+  readonly extendedColor: boolean;
   readonly parallel: boolean;
   readonly recursive: boolean;
   readonly showCommand: boolean;
@@ -159,6 +162,8 @@ export class Config {
     this.dryRun = options.dryRun ?? file.dryRun ?? false;
     this.logLevel = (options.logLevel as LogLevel) ?? file.logLevel ?? 'info';
     this.color = resolveColor(options.color ?? file.color, env, destinations);
+    this.extendedColor =
+      this.color && WriteStream.prototype.getColorDepth(env) >= 8;
     this.formatLabel = file.formatLabel;
 
     // A setting may name one axis and leave the other to what it layers onto;

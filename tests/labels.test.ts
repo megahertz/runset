@@ -1,13 +1,13 @@
 import { fileURLToPath } from 'node:url';
 import { describe, expect, test } from 'vitest';
 import { Run, runset } from '../src/index.ts';
-import { PALETTE, paletteIndex } from '../src/plan/labels.ts';
+import { BASIC_PALETTE, paletteIndex } from '../src/utils/colors.ts';
 import { run, runWithError } from './helpers/cli.ts';
 import { fixturePath, tempDir } from './helpers/tempDir.ts';
 
 /** The background a label asks for, before two of them are pulled apart. */
 function wants(label: string): string {
-  return PALETTE[paletteIndex(label)]?.bgColor ?? '';
+  return BASIC_PALETTE[paletteIndex(label, BASIC_PALETTE)]?.bgColor ?? '';
 }
 
 /** The lines of a run's output, without the blank one at the end. */
@@ -183,6 +183,27 @@ describe('[labels] runset tags interleaved output with its command', () => {
   });
 
   describe('color', () => {
+    test.each([
+      ['ink', 'bgCoral', 235, 210],
+      ['paper', 'bgNavy', 255, 24],
+    ])(
+      'extended shades %s/%s render through the CLI and respect --no-color',
+      async (foreground, background, fgIndex, bgIndex) => {
+        await using dir = await tempDir();
+        const target = {
+          cwd: dir.path,
+          env: { FORCE_COLOR: '2', NO_COLOR: '' },
+        };
+        const command = `echo hi::label=api,color=${foreground},bg-color=${background}`;
+        const colored = await run(['--color', command], target);
+        expect(colored.stdout).toBe(
+          `\u001B[48;5;${bgIndex}m\u001B[38;5;${fgIndex}mapi\u001B[39m\u001B[49m hi\n`,
+        );
+        const plain = await run(['--no-color', command], target);
+        expect(plain.stdout).toBe('[api] hi\n');
+      },
+    );
+
     test('--color turns the label into a filled block', async () => {
       await using dir = await tempDir();
       const { stdout } = await run(
@@ -370,6 +391,7 @@ describe('[labels] runset tags interleaved output with its command', () => {
      */
     function backgrounds(...commands: string[]): string[] {
       const runner = Run.fromConfigJs({
+        color: false,
         commands,
         cwd: fixturePath(),
         parallel: true,
@@ -388,7 +410,9 @@ describe('[labels] runset tags interleaved output with its command', () => {
     test('two labels wanting one color are still pulled apart', () => {
       // The point of the color is telling the two apart, so it outranks
       // giving each of them the one its label asked for.
-      expect(paletteIndex('api')).toBe(paletteIndex('dash'));
+      expect(paletteIndex('api', BASIC_PALETTE)).toBe(
+        paletteIndex('dash', BASIC_PALETTE),
+      );
 
       const [api, dash] = backgrounds(
         'echo a::label=api',
@@ -402,6 +426,7 @@ describe('[labels] runset tags interleaved output with its command', () => {
     test('a color the user chose is not handed to anything else', async () => {
       await using dir = await tempDir();
       const runner = Run.fromConfigJs({
+        color: false,
         commands: [
           { bgColor: wants('db'), command: 'echo a' },
           'echo b::label=db',

@@ -1,21 +1,12 @@
 import type { Command } from '../types.ts';
+import {
+  BASIC_PALETTE,
+  fallbackColor,
+  PALETTE,
+  paletteIndex,
+} from '../utils/colors.ts';
 import type { Plan } from './plan.ts';
 import { groupByStage } from './stages.ts';
-
-export const PALETTE: { bgColor: string; color: string }[] = [
-  { bgColor: 'bgGreen', color: 'black' },
-  { bgColor: 'bgBlue', color: 'white' },
-  { bgColor: 'bgMagenta', color: 'white' },
-  { bgColor: 'bgCyan', color: 'black' },
-  { bgColor: 'bgYellow', color: 'black' },
-  { bgColor: 'bgRed', color: 'white' },
-  { bgColor: 'bgGray', color: 'white' },
-  { bgColor: 'bgGreenBright', color: 'black' },
-  { bgColor: 'bgBlueBright', color: 'black' },
-  { bgColor: 'bgMagentaBright', color: 'black' },
-  { bgColor: 'bgCyanBright', color: 'black' },
-  { bgColor: 'bgYellowBright', color: 'black' },
-];
 
 /**
  * Settles who is labelled, per `config.labels`. Under `auto`, a command
@@ -58,14 +49,24 @@ export function assignAutoLabels({ commands, config }: Plan): void {
 
 /**
  * Gives each labelled command without colors of its own a palette pair: the
- * one its label hashes to, or the next free when that is taken.
+ * one its label hashes to, or the next free when that is taken. On a basic
+ * terminal every shade is first swapped for its theme color, so nothing past
+ * the plan has to know how many colors the terminal has.
  */
-export function colorLabels({ commands }: Plan): void {
+export function colorLabels({ commands, config }: Plan): void {
+  const palette = config.extendedColor ? PALETTE : BASIC_PALETTE;
+  if (!config.extendedColor) {
+    for (const command of commands) {
+      command.bgColor = fallbackColor(command.bgColor);
+      command.color = fallbackColor(command.color);
+    }
+  }
+
   const labeled = commands.filter((command) => command.label !== '');
   const taken = new Set(
     labeled
       .map((command) =>
-        PALETTE.findIndex((pair) => pair.bgColor === command.bgColor),
+        palette.findIndex((pair) => pair.bgColor === command.bgColor),
       )
       .filter((index) => index !== -1),
   );
@@ -80,10 +81,14 @@ export function colorLabels({ commands }: Plan): void {
       continue;
     }
 
-    const index = claim(paletteIndex(command.label), taken);
+    const index = claim(
+      paletteIndex(command.label, palette),
+      taken,
+      palette.length,
+    );
     taken.add(index);
 
-    const pair = PALETTE[index] as (typeof PALETTE)[number];
+    const pair = palette[index] as (typeof palette)[number];
     command.bgColor = pair.bgColor;
     command.color = pair.color;
   }
@@ -96,20 +101,6 @@ export function alignLabels({ commands }: Plan): void {
   for (const command of labeled) {
     command.label = command.label.padEnd(width);
   }
-}
-
-/** A stable palette index for a label. */
-export function paletteIndex(label: string): number {
-  /** The largest modulus that keeps `hash * 31 + code` an exact integer. */
-  const HASH_MODULUS = 2_147_483_647;
-  let hash = 0;
-
-  // By code point, so an astral character is not counted twice.
-  for (const character of label) {
-    hash = (hash * 31 + (character.codePointAt(0) ?? 0)) % HASH_MODULUS;
-  }
-
-  return hash % PALETTE.length;
 }
 
 /** The script name, or the program a shell command runs. */
@@ -141,15 +132,15 @@ function numberRepeats(named: Command[]): void {
   }
 }
 
-function claim(preferred: number, taken: Set<number>): number {
+function claim(preferred: number, taken: Set<number>, size: number): number {
   // More labels than colors: share the preferred one.
-  if (taken.size >= PALETTE.length) {
+  if (taken.size >= size) {
     return preferred;
   }
 
   let index = preferred;
   while (taken.has(index)) {
-    index = (index + 1) % PALETTE.length;
+    index = (index + 1) % size;
   }
 
   return index;

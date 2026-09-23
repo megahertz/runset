@@ -88,6 +88,23 @@ Commands running together get colored labels automatically, so you can tell
 which command wrote each line. Set your own with `::label=api,color=cyan`. Use
 `--no-color` for plain text or `--labels none` to hide labels.
 
+On 256-color terminals, automatic labels use 36 backgrounds: 24 soft, vivid
+shades with charcoal text and 12 deeper shades with off-white text. Basic
+terminals use the terminal's theme colors. Color support is detected from the
+terminal environment; `FORCE_COLOR=2` enables the expanded palette explicitly.
+`--no-color` still disables all runset colors.
+
+You can also choose a shade: `"api::label=server,color=ink,bg-color=bgCoral"`.
+Available shades are `mint`, `sky`, `rose`, `amber`, `lavender`, `aqua`,
+`coral`, `sage`, `periwinkle`, `peach`, `teal`, `lilac`, `lime`, `steel`,
+`pink`, `seafoam`, `apricot`, `mauve`, `jade`, `sand`, `iris`, `ice`, `salmon`,
+`olive`, `navy`, `plum`, `forest`, `wine`, `ocean`, `indigo`, `copper`, `pine`,
+`violet`, `brick`, `slate`, `cocoa`, `ink`, and `paper`. Pair the deeper shades
+with `paper`, as in `"api::label=server,color=paper,bg-color=bgNavy"`. For
+backgrounds, capitalize the shade and prefix it with `bg`, as in `bgMint`.
+Existing names such as `cyan` and `bgBlue` still use your terminal's theme. From
+a checkout, run `npm run preview:colors` to see all 36 label pairs.
+
 To keep each command's output together, use grouped output:
 
 ```sh
