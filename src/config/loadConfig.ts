@@ -2,30 +2,23 @@ import fs from 'node:fs';
 import path from 'node:path';
 import type { ConfigJs, ConfigJsExport } from '../types.ts';
 import { ConfigError } from '../utils/errors.ts';
-import { importSync } from '../utils/fs.ts';
+import { ancestors, importSync, readJson } from '../utils/fs.ts';
+import { isPlainObject } from '../utils/object.ts';
 
 /**
  * Loads `runset.config.*` — the `explicitPath`, or the first one found walking
  * up from `cwd`, where a `package.json` `runset` section counts as one too —
  * and unwraps a default export or a factory function.
  */
-export function loadConfigJs({
-  argv,
-  cwd,
-  env,
-  explicitPath,
-}: {
-  argv: string[];
-  cwd: string;
-  env: NodeJS.ProcessEnv;
-  explicitPath: string | undefined;
-}): ConfigJs {
-  const context = { argv, cwd, env };
+export function loadConfigJs(
+  context: ConfigContext,
+  explicitPath: string | undefined,
+): ConfigJs {
   if (explicitPath === undefined) {
-    return unwrapConfigJs(findConfigJs(cwd) ?? {}, context);
+    return unwrapConfigJs(findConfigJs(context.cwd) ?? {}, context);
   }
 
-  const filePath = path.resolve(cwd, explicitPath);
+  const filePath = path.resolve(context.cwd, explicitPath);
   if (!fs.existsSync(filePath)) {
     throw new ConfigError(`Config file not found: ${explicitPath}`);
   }
@@ -34,23 +27,10 @@ export function loadConfigJs({
 
 export function unwrapConfigJs(
   source: ConfigJsExport,
-  context: { argv: string[]; cwd: string; env: NodeJS.ProcessEnv },
+  context: ConfigContext,
 ): ConfigJs {
   const unwrapped = (source as { default?: ConfigJsExport }).default ?? source;
   return typeof unwrapped === 'function' ? unwrapped(context) : unwrapped;
-}
-
-/** `dir` and every directory above it, up to the root. */
-export function ancestors(dir: string): string[] {
-  const dirs = [path.resolve(dir)];
-  for (;;) {
-    const current = dirs.at(-1) as string;
-    const parent = path.dirname(current);
-    if (parent === current) {
-      return dirs;
-    }
-    dirs.push(parent);
-  }
 }
 
 /**
@@ -75,18 +55,15 @@ function findConfigJs(cwd: string): ConfigJsExport | undefined {
 }
 
 function readPackageJsonSection(filePath: string): ConfigJs | undefined {
-  if (!fs.existsSync(filePath)) {
-    return undefined;
-  }
-
-  const { runset } = JSON.parse(fs.readFileSync(filePath, 'utf8')) as {
-    runset?: unknown;
-  };
+  const runset = readJson(filePath)?.runset;
   if (runset === undefined) {
     return undefined;
   }
-  if (runset === null || typeof runset !== 'object' || Array.isArray(runset)) {
+  if (!isPlainObject(runset)) {
     throw new ConfigError(`${filePath}: "runset" must be an object`);
   }
   return runset as ConfigJs;
 }
+
+/** What a config factory is called with. */
+type ConfigContext = { argv: string[]; cwd: string; env: NodeJS.ProcessEnv };

@@ -1,6 +1,5 @@
 import path from 'node:path';
-import { ancestors } from '../config/loadConfig.ts';
-import type { PackageInfo } from '../utils/fs.ts';
+import { ancestors, type PackageInfo } from '../utils/fs.ts';
 
 /**
  * The environment a command runs in: every `node_modules/.bin` up from `cwd`

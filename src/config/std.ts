@@ -25,7 +25,7 @@ export function parsePartialStd(value: string): Partial<Std> {
   return result;
 }
 
-export function toPartialStd(value: Partial<Std> | string): Partial<Std> {
+function toPartialStd(value: Partial<Std> | string): Partial<Std> {
   return typeof value === 'string' ? parsePartialStd(value) : value;
 }
 
@@ -39,4 +39,24 @@ export function mergeStd<T extends Partial<Std>>(
 
 export function defaultStd(destination: 'stderr' | 'stdout'): Std {
   return { destination, timing: 'realtime' };
+}
+
+type StdValue = Partial<Std> | string;
+
+/**
+ * Layers bags' stream settings over `base`, later bags over earlier, one axis
+ * at a time. `output` names both streams; a stream's own setting in the same
+ * bag outranks it.
+ */
+export function layerStreams<T extends Partial<Std>>(
+  base: { stderr: T; stdout: T },
+  bags: { output?: StdValue; stderr?: StdValue; stdout?: StdValue }[],
+): { stderr: T; stdout: T } {
+  const result = { ...base };
+  for (const bag of bags) {
+    for (const key of ['stderr', 'stdout'] as const) {
+      result[key] = mergeStd(mergeStd(result[key], bag.output), bag[key]);
+    }
+  }
+  return result;
 }

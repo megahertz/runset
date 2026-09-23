@@ -46,16 +46,13 @@ export class Process {
     this.command = command;
     this.context = context;
 
-    const { destinations, envColumns, formatLabel, wrap } = context.config;
-    const color = context.config.color !== 'none';
+    const { color, formatLabel } = context.config;
+    const colored = color !== 'none';
     const sink = (stream: 'stderr' | 'stdout') =>
       new OutputSink(
         command[stream],
-        makePrefix(command, color, formatLabel, stream),
-        destinations,
-        context.files,
-        wrap,
-        envColumns,
+        makePrefix(command, colored, formatLabel, stream),
+        context,
       );
     this.stdout = sink('stdout');
     this.stderr = sink('stderr');
@@ -88,9 +85,9 @@ export class Process {
     for (;;) {
       this.started = true;
 
-      if (this.context.config.showCommand) {
-        const run =
-          this.context.config.color === 'none' ? 'run' : paint('run', ['blue']);
+      const { color, showCommand, showExitCode } = this.context.config;
+      if (showCommand) {
+        const run = paint('run', ['blue'], color !== 'none');
         this.stdout.writeLine(`${run} ${this.command.command}`);
       }
 
@@ -98,7 +95,7 @@ export class Process {
       await this.spawn();
 
       // Before the flush, so a grouped stream holds it with the output.
-      if (this.context.config.showExitCode) {
+      if (showExitCode) {
         this.stdout.writeLine(this.exitLine());
       }
       this.stdout.flush();
@@ -157,21 +154,19 @@ export class Process {
    * in gray, so it can be found without its label.
    */
   private exitLine(): string {
-    const color = this.context.config.color !== 'none';
+    const colored = this.context.config.color !== 'none';
     const duration = formatDuration(performance.now() - this.attemptStart);
 
     if (this.exitCode === 0 && this.signal === undefined && !this.terminated) {
-      return `${color ? paint('✓', ['green']) : '✓'} ${duration}`;
+      return `${paint('✓', ['green'], colored)} ${duration}`;
     }
 
     // Whatever it died of, runset asked for it: not a failure of its own.
     const [status, tint] = this.terminated
       ? ['– stopped', 'yellow']
       : [`✗ ${this.shortExit()}`, 'red'];
-    const { command } = this.command;
-    return color
-      ? `${paint(status, [tint])} · ${duration}  ${paint(command, ['gray'])}`
-      : `${status} · ${duration}  ${command}`;
+    const command = paint(this.command.command, ['gray'], colored);
+    return `${paint(status, [tint], colored)} · ${duration}  ${command}`;
   }
 
   /** `code N`, the signal's name, or `stopped`. */

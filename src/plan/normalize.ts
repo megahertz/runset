@@ -1,6 +1,6 @@
 import path from 'node:path';
 import type { Config } from '../config/Config.ts';
-import { mergeStd, toPartialStd } from '../config/std.ts';
+import { layerStreams, mergeStd } from '../config/std.ts';
 import {
   actionError,
   booleanError,
@@ -15,8 +15,8 @@ import type {
   CommandEntry,
   CommandOptions,
   CommandSettings,
+  Std,
 } from '../types.ts';
-import { isCommandSettings } from '../types.ts';
 import { NormalizeError } from '../utils/errors.ts';
 import type { PackageInfo } from '../utils/fs.ts';
 import { isGlob, matchGlob } from '../utils/glob.ts';
@@ -24,7 +24,13 @@ import { toKebabCase } from '../utils/string.ts';
 import { readWorkspacePackages } from '../utils/workspace.ts';
 import { substitutePlaceholders } from './placeholders.ts';
 import { BOUNDARY, EMPTY_SEGMENT, link, type Segment } from './stages.ts';
-import { INLINE_OPTIONS, parseInlineOptions, splitToken } from './token.ts';
+import {
+  ACTION_OPTIONS,
+  BOOLEAN_OPTIONS,
+  INLINE_OPTIONS,
+  parseInlineOptions,
+  splitToken,
+} from './token.ts';
 import type { Token } from './token.ts';
 
 /** Keys a settings entry may set. */
@@ -35,7 +41,6 @@ const SETTINGS_OPTIONS = new Set([...INLINE_OPTIONS, 'env', 'serial']);
  * by stage and sorted by it.
  */
 export function normalize(config: Config, packageInfo: PackageInfo): Command[] {
-  const scriptNames = Object.keys(packageInfo.scripts);
   let workspacePackages: PackageInfo[] | undefined;
 
   const defaults: Command = {
@@ -43,14 +48,11 @@ export function normalize(config: Config, packageInfo: PackageInfo): Command[] {
     color: '',
     command: '',
     cwd: config.cwd,
-    disabled: false,
     env: {},
     label: '',
     line: '',
     onFailure: config.onFailure,
     onSuccess: config.onSuccess,
-    parallel: config.parallel,
-    recursive: config.recursive,
     stage: 0,
     stderr: config.stderr,
     stdout: config.stdout,
@@ -63,10 +65,12 @@ export function normalize(config: Config, packageInfo: PackageInfo): Command[] {
     script: string | undefined,
     pkg = packageInfo,
   ): Command {
+    // Read while the list is laid out; none of them is the command's own.
+    const { disabled, parallel, recursive, ...own } = rawOptions;
     const options = {
-      ...rawOptions,
-      stderr: mergeStd(defaults.stderr, rawOptions.stderr),
-      stdout: mergeStd(defaults.stdout, rawOptions.stdout),
+      ...own,
+      stderr: mergeStd(defaults.stderr, own.stderr),
+      stdout: mergeStd(defaults.stdout, own.stdout),
     };
     const args = substitutePlaceholders(token.args, config.args);
     const command = [token.name, args].filter((part) => part !== '').join(' ');
@@ -94,20 +98,19 @@ export function normalize(config: Config, packageInfo: PackageInfo): Command[] {
     }
 
     // Before `disabled` is read: `disabled: 'no'` is refused, not truthy.
-    validateCommand(leaf);
+    validateCommand(leaf, { disabled, parallel, recursive });
 
     return leaf;
   }
 
-  /** Links one token's commands (e.g. glob matches) by their own `parallel`. */
+  /** Links one token's commands (e.g. glob matches) by their `parallel`. */
   function toSegment(leaves: Command[], settled: CommandOptions): Segment {
+    const parallel = settled.parallel ?? config.parallel;
     return {
-      commands: link(
-        leaves
-          .filter((leaf) => !leaf.disabled)
-          .map((leaf) => ({ commands: [leaf], parallel: leaf.parallel })),
-      ),
-      parallel: settled.parallel ?? defaults.parallel,
+      commands: settled.disabled
+        ? []
+        : link(leaves.map((leaf) => ({ commands: [leaf], parallel }))),
+      parallel,
     };
   }
 
@@ -141,7 +144,7 @@ export function normalize(config: Config, packageInfo: PackageInfo): Command[] {
 
     const settled = layer(inherited, inline, overrides);
 
-    if (settled.recursive ?? defaults.recursive) {
+    if (settled.recursive ?? config.recursive) {
       // Every workspace package that has the script; none is not an error,
       // the token then resolves as it would without `recursive`.
       workspacePackages ??= readWorkspacePackages(config.cwd);
@@ -156,20 +159,14 @@ export function normalize(config: Config, packageInfo: PackageInfo): Command[] {
       }
     }
 
-    if (isGlob(token.name)) {
-      return toSegment(
-        matchGlob(token.name, scriptNames).map((name) =>
-          makeLeaf({ ...token, name }, settled, name),
-        ),
-        settled,
-      );
-    }
+    // A glob matching nothing runs nothing; any other name is a shell command.
+    const names = matchScripts(token.name, packageInfo);
+    const leaves =
+      names.length > 0 || isGlob(token.name)
+        ? names.map((name) => makeLeaf({ ...token, name }, settled, name))
+        : [makeLeaf(token, settled, undefined)];
 
-    const script = Object.hasOwn(packageInfo.scripts, token.name)
-      ? token.name
-      : undefined;
-
-    return toSegment([makeLeaf(token, settled, script)], settled);
+    return toSegment(leaves, settled);
   }
 
   function appendArgs(segment: Segment, token: Token): Segment {
@@ -212,7 +209,7 @@ export function normalize(config: Config, packageInfo: PackageInfo): Command[] {
       );
     }
 
-    if (isCommandSettings(definition)) {
+    if (isSettingsEntry(definition)) {
       throw new NormalizeError('A command definition needs a "command" field.');
     }
 
@@ -240,8 +237,7 @@ export function normalize(config: Config, packageInfo: PackageInfo): Command[] {
   ): Segment {
     const { parallel: inheritedParallel, ...passedDown } = inherited;
     const { parallel: overriddenParallel, ...passedOver } = overrides;
-    const parallel =
-      overriddenParallel ?? inheritedParallel ?? defaults.parallel;
+    const parallel = overriddenParallel ?? inheritedParallel ?? config.parallel;
 
     check(
       booleanError('"parallel" on a list of commands', parallel),
@@ -288,28 +284,28 @@ export function normalize(config: Config, packageInfo: PackageInfo): Command[] {
   return commands;
 }
 
+/** True for an object written without a `command` — a settings entry. */
+export function isSettingsEntry(
+  definition: CommandDefinition | CommandDefinition[],
+): definition is CommandSettings {
+  return (
+    typeof definition === 'object' &&
+    definition !== null &&
+    !Array.isArray(definition) &&
+    !('command' in definition)
+  );
+}
+
 /** The scripts of `pkg` a token name matches, glob or not. */
 function matchScripts(name: string, pkg: PackageInfo): string[] {
-  const scriptNames = Object.keys(pkg.scripts);
   if (isGlob(name)) {
-    return matchGlob(name, scriptNames);
+    return matchGlob(name, Object.keys(pkg.scripts));
   }
   return Object.hasOwn(pkg.scripts, name) ? [name] : [];
 }
 
 function packageNameOf(pkg: PackageInfo): string {
   return pkg.name || path.basename(path.dirname(pkg.filePath));
-}
-
-function isSettingsEntry(
-  definition: CommandDefinition,
-): definition is CommandSettings {
-  return (
-    typeof definition === 'object' &&
-    definition !== null &&
-    !Array.isArray(definition) &&
-    isCommandSettings(definition)
-  );
 }
 
 /** Resolves a relative `cwd` against the inherited one, so directories nest. */
@@ -358,36 +354,30 @@ function readSettings(entry: CommandSettings, base: string): CommandOptions {
 /** Layers option bags, later over earlier; stream settings merge per axis. */
 function layer(...bags: CommandOptions[]): CommandOptions {
   const result: CommandOptions = {};
-
   for (const { output, stderr, stdout, ...rest } of bags) {
     Object.assign(result, rest);
-    // `output` names both streams; a stream's own setting in the same bag
-    // outranks it.
-    for (const [key, own] of [
-      ['stderr', stderr],
-      ['stdout', stdout],
-    ] as const) {
-      for (const value of [output, own]) {
-        if (value !== undefined) {
-          result[key] = mergeStd(toPartialStd(result[key] ?? {}), value);
-        }
-      }
-    }
   }
 
-  return result;
+  return {
+    ...result,
+    ...layerStreams<Partial<Std>>({ stderr: {}, stdout: {} }, bags),
+  };
 }
 
-/** Checks what a config file could have written by hand. */
-function validateCommand(command: Command): void {
+/**
+ * Checks what a config file could have written by hand: the leaf, and the
+ * options that were read while laying it out.
+ */
+function validateCommand(
+  command: Command,
+  read: Pick<CommandOptions, (typeof BOOLEAN_OPTIONS)[number]>,
+): void {
   const where = (key: string) =>
     `"${toKebabCase(key)}" on "${command.command}"`;
   const errors = [
-    ...(['onFailure', 'onSuccess'] as const).map((key) =>
-      actionError(where(key), command[key]),
-    ),
-    ...(['disabled', 'parallel', 'recursive'] as const).map((key) =>
-      booleanError(where(key), command[key]),
+    ...ACTION_OPTIONS.map((key) => actionError(where(key), command[key])),
+    ...BOOLEAN_OPTIONS.map((key) =>
+      read[key] === undefined ? undefined : booleanError(where(key), read[key]),
     ),
     ...(['bgColor', 'color', 'cwd', 'label'] as const).map((key) =>
       stringError(where(key), command[key]),

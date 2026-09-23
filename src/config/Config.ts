@@ -1,24 +1,24 @@
 import path from 'node:path';
 import { WriteStream } from 'node:tty';
+import { isSettingsEntry } from '../plan/normalize.ts';
 import type {
   ColorMode,
   CommandDefinition,
   ConfigJs,
   ConfigJsExport,
-  Destinations,
   ExitAction,
   LabelFormatter,
   LabelMode,
   LogLevel,
   Std,
 } from '../types.ts';
-import { isCommandSettings } from '../types.ts';
 import type { ColorLevel } from '../utils/colors.ts';
 import { ConfigError } from '../utils/errors.ts';
+import { isPlainObject } from '../utils/object.ts';
 import { isTerminal, parseColumns } from '../utils/terminal.ts';
 import { loadConfigJs, unwrapConfigJs } from './loadConfig.ts';
 import { parseCli, type ParsedCli } from './parseCli.ts';
-import { defaultStd, mergeStd } from './std.ts';
+import { defaultStd, layerStreams } from './std.ts';
 import {
   actionError,
   booleanError,
@@ -40,29 +40,30 @@ const COLOR_MODES = new Set<ColorMode>([
   'all',
 ]);
 
-const KNOWN_KEYS = new Set<keyof ConfigJs>([
-  'color',
-  'scripts',
-  'commands',
-  'cwd',
-  'dryRun',
-  'env',
-  'formatLabel',
-  'jobs',
-  'killTimeout',
-  'labels',
-  'logLevel',
-  'onFailure',
-  'onSuccess',
-  'output',
-  'parallel',
-  'recursive',
-  'showCommand',
-  'showExitCode',
-  'stderr',
-  'stdout',
-  'wrap',
-]);
+/** Every key a config may set; a record, so a new one cannot be missed. */
+const KNOWN_KEYS: Record<keyof ConfigJs, true> = {
+  color: true,
+  commands: true,
+  cwd: true,
+  dryRun: true,
+  env: true,
+  formatLabel: true,
+  jobs: true,
+  killTimeout: true,
+  labels: true,
+  logLevel: true,
+  onFailure: true,
+  onSuccess: true,
+  output: true,
+  parallel: true,
+  recursive: true,
+  scripts: true,
+  showCommand: true,
+  showExitCode: true,
+  stderr: true,
+  stdout: true,
+  wrap: true,
+};
 
 /** Parses, loads and validates; anything left out comes from the process. */
 export function createConfig({
@@ -125,11 +126,11 @@ export class Config {
     const context = { argv: cli.argv, cwd: this.cwd, env };
     const file =
       configJs === undefined
-        ? loadConfigJs({ ...context, explicitPath: options.config })
+        ? loadConfigJs(context, options.config)
         : unwrapConfigJs(configJs, context);
 
     for (const key of Object.keys(file)) {
-      if (!KNOWN_KEYS.has(key as keyof ConfigJs)) {
+      if (!Object.hasOwn(KNOWN_KEYS, key)) {
         this.warnings.push(`Unknown config key "${key}" was ignored.`);
       }
     }
@@ -156,34 +157,21 @@ export class Config {
     this.showExitCode = options.showExitCode ?? file.showExitCode ?? false;
     this.wrap = options.wrap ?? file.wrap ?? false;
     this.envColumns = parseColumns(env.COLUMNS);
-    this.labels = (options.labels as LabelMode) ?? file.labels ?? 'auto';
-    this.onSuccess = (options.onSuccess ??
-      file.onSuccess ??
-      'continue') as ExitAction;
-    this.onFailure = (options.onFailure ??
-      file.onFailure ??
-      'stop') as ExitAction;
+    this.labels = options.labels ?? file.labels ?? 'auto';
+    this.onSuccess = options.onSuccess ?? file.onSuccess ?? 'continue';
+    this.onFailure = options.onFailure ?? file.onFailure ?? 'stop';
     this.dryRun = options.dryRun ?? file.dryRun ?? false;
-    this.logLevel = (options.logLevel as LogLevel) ?? file.logLevel ?? 'info';
+    this.logLevel = options.logLevel ?? file.logLevel ?? 'info';
     this.color = resolveColor(options.color ?? file.color, env, destinations);
     this.formatLabel = file.formatLabel;
 
-    // A setting may name one axis and leave the other to what it layers onto;
-    // `output` names both streams, and a stream's own setting outranks it.
-    const std = (stream: 'stderr' | 'stdout'): Std => {
-      let result = defaultStd(stream);
-      for (const value of [
-        file.output,
-        file[stream],
-        options.output,
-        options[stream],
-      ]) {
-        result = mergeStd(result, value);
-      }
-      return result;
-    };
-    this.stdout = std('stdout');
-    this.stderr = std('stderr');
+    // A setting may name one axis and leave the other to what it layers onto.
+    const streams = layerStreams(
+      { stderr: defaultStd('stderr'), stdout: defaultStd('stdout') },
+      [file, options],
+    );
+    this.stdout = streams.stdout;
+    this.stderr = streams.stderr;
   }
 
   /** Throws on the first invalid value; types too, as config files are arbitrary JS. */
@@ -205,11 +193,7 @@ export class Config {
       this.formatLabel !== undefined && typeof this.formatLabel !== 'function'
         ? 'formatLabel must be a function.'
         : undefined,
-      typeof this.scripts !== 'object' ||
-      this.scripts === null ||
-      Array.isArray(this.scripts)
-        ? 'scripts must be an object.'
-        : undefined,
+      isPlainObject(this.scripts) ? undefined : 'scripts must be an object.',
       actionError('onSuccess', this.onSuccess),
       actionError('onFailure', this.onFailure),
     ];
@@ -222,10 +206,8 @@ export class Config {
 
   /** True when `commands` holds something to run, not just settings entries. */
   hasCommands(): boolean {
-    return this.commands.some((command) =>
-      typeof command === 'object' && command !== null
-        ? !isCommandSettings(command)
-        : Boolean(command),
+    return this.commands.some(
+      (command) => Boolean(command) && !isSettingsEntry(command),
     );
   }
 }
@@ -267,6 +249,12 @@ function detectColor(
   }
 
   return isTerminal(destinations.stdout) && isTerminal(destinations.stderr);
+}
+
+/** Where a run writes. */
+export interface Destinations {
+  stderr: NodeJS.WritableStream;
+  stdout: NodeJS.WritableStream;
 }
 
 interface ResolvedConfigOptions {

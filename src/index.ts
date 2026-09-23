@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { main } from './cli.ts';
 import { Run } from './run/Run.ts';
 import type { CommandDefinition, ConfigJs } from './types.ts';
+import { isPlainObject } from './utils/object.ts';
 
 export * from './run/Run.ts';
 export * from './types.ts';
@@ -48,12 +49,7 @@ function toConfigJs(
 function isConfigObject(
   value: CommandDefinition | CommandDefinition[] | ConfigJs,
 ): value is ConfigJs {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    !Array.isArray(value) &&
-    Array.isArray((value as ConfigJs).commands)
-  );
+  return isPlainObject(value) && Array.isArray(value.commands);
 }
 
 /**

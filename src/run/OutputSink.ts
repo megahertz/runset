@@ -1,51 +1,43 @@
-import type { Destinations, Std } from '../types.ts';
-import { isStreamDestination } from '../types.ts';
+import type { Std } from '../types.ts';
 import { terminalColumns, visibleWidth, wrapLine } from '../utils/terminal.ts';
-import type { FileRegistry } from './FileRegistry.ts';
+import type { RunContext } from './Process.ts';
 
 /**
  * Routes one command stream by its {@link Std}: `realtime` writes through,
  * `grouped` holds everything until {@link flush}, `none` discards.
  */
 export class OutputSink {
+  /** A grouped stream's output, or a prefixed stream's unfinished line. */
   private buffered = '';
-  /** A prefixed stream's unfinished line, held until its newline. */
-  private pending = '';
   private opened: NodeJS.WritableStream | undefined;
   /** Whether everything written so far ended with a newline. */
   private atLineStart = true;
 
   private readonly std: Std;
   private readonly prefix: Prefix;
-  private readonly destinations: Destinations;
-  private readonly files: FileRegistry;
-  private readonly wrap: boolean;
-  /** `COLUMNS`, for a stream that is not a terminal. */
-  private readonly envColumns: number | undefined;
+  /** The columns a fixed prefix takes; measured per line otherwise. */
+  private readonly prefixWidth: number | undefined;
+  private readonly context: Pick<RunContext, 'config' | 'files'>;
 
   constructor(
     std: Std,
     prefix: Prefix,
-    destinations: Destinations,
-    files: FileRegistry,
-    wrap = false,
-    envColumns?: number,
+    context: Pick<RunContext, 'config' | 'files'>,
   ) {
     this.std = std;
     this.prefix = prefix;
-    this.destinations = destinations;
-    this.files = files;
-    this.wrap = wrap;
-    this.envColumns = envColumns;
+    this.prefixWidth =
+      typeof prefix === 'string' ? visibleWidth(prefix) : undefined;
+    this.context = context;
   }
 
   /** Opened on first use, so a command that never writes truncates nothing. */
   private get target(): NodeJS.WritableStream {
     if (isStreamDestination(this.std.destination)) {
-      return this.destinations[this.std.destination];
+      return this.context.config.destinations[this.std.destination];
     }
 
-    this.opened ??= this.files.open(this.std.destination);
+    this.opened ??= this.context.files.open(this.std.destination);
     return this.opened;
   }
 
@@ -54,10 +46,11 @@ export class OutputSink {
    * else `COLUMNS`. A file has none, and neither has a run without `wrap`.
    */
   columns(): number | undefined {
-    if (!this.wrap || !isStreamDestination(this.std.destination)) {
+    const { envColumns, wrap } = this.context.config;
+    if (!wrap || !isStreamDestination(this.std.destination)) {
       return undefined;
     }
-    return terminalColumns(this.target) ?? this.envColumns;
+    return terminalColumns(this.target) ?? envColumns;
   }
 
   write(chunk: string): void {
@@ -78,14 +71,15 @@ export class OutputSink {
     }
 
     // Only whole lines go out, so commands never land mid-line on each other.
-    this.pending += chunk;
-    const end = this.pending.lastIndexOf('\n');
+    // Only the new chunk is searched: a long unfinished line is not rescanned.
+    const end = chunk.lastIndexOf('\n');
     if (end === -1) {
+      this.buffered += chunk;
       return;
     }
 
-    const complete = this.pending.slice(0, end + 1);
-    this.pending = this.pending.slice(end + 1);
+    const complete = this.buffered + chunk.slice(0, end + 1);
+    this.buffered = chunk.slice(end + 1);
     this.target.write(this.applyPrefix(complete));
   }
 
@@ -96,12 +90,11 @@ export class OutputSink {
 
   /** Emits what is held back: a `grouped` stream, or a partial line. */
   flush(): void {
-    const held = [this.pending, this.buffered].filter((text) => text !== '');
-    this.pending = '';
+    const held = this.buffered;
     this.buffered = '';
 
-    for (const text of held) {
-      this.target.write(this.applyPrefix(text));
+    if (held !== '') {
+      this.target.write(this.applyPrefix(held));
     }
   }
 
@@ -113,14 +106,19 @@ export class OutputSink {
 
     const endsWithNewline = chunk.endsWith('\n');
     const body = endsWithNewline ? chunk.slice(0, -1) : chunk;
+    const end = endsWithNewline ? '\n' : '';
     const columns = this.columns();
 
     // Blank lines are prefixed too, keeping the label column unbroken.
+    if (typeof prefix === 'string' && columns === undefined) {
+      return prefix + body.replaceAll('\n', `\n${prefix}`) + end;
+    }
+
     return (
       body
         .split('\n')
         .map((line) => this.label(line, prefix, columns))
-        .join('\n') + (endsWithNewline ? '\n' : '')
+        .join('\n') + end
     );
   }
 
@@ -139,7 +137,7 @@ export class OutputSink {
     // A CRLF line ends in `\r`: it closes the line rather than moving the
     // cursor, so it is kept aside for the wrap and put back after it.
     const cr = line.endsWith('\r') ? '\r' : '';
-    const width = visibleWidth(text);
+    const width = this.prefixWidth ?? visibleWidth(text);
     return (
       wrapLine(line.slice(0, line.length - cr.length), columns - width, width)
         .map((piece) => text + piece)
@@ -150,3 +148,9 @@ export class OutputSink {
 
 /** A line prefix: fixed, or asked for once per line. */
 export type Prefix = (() => string) | string;
+
+export function isStreamDestination(
+  destination: string,
+): destination is 'stderr' | 'stdout' {
+  return destination === 'stdout' || destination === 'stderr';
+}

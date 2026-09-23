@@ -45,28 +45,12 @@ export function link(segments: Segment[]): Command[] {
   return commands;
 }
 
-/** Splits a stage-sorted list into its stages. */
+/** Splits a stage-sorted list into its stages, in order. */
 export function groupByStage<T>(
   items: readonly T[],
   stageOf: (item: T) => number,
 ): T[][] {
-  const stages: T[][] = [];
-  let current: T[] | undefined;
-  let stage: number | undefined;
-
-  for (const item of items) {
-    const own = stageOf(item);
-
-    if (current === undefined || own !== stage) {
-      current = [];
-      stage = own;
-      stages.push(current);
-    }
-
-    current.push(item);
-  }
-
-  return stages;
+  return [...Map.groupBy(items, stageOf).values()];
 }
 
 /** The commands one token or list produced, staged among themselves. */

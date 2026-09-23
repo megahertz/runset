@@ -70,19 +70,19 @@ interface Command {
   label: string;            // printed before each output line when non-empty
   color: string;            // default ''
   bgColor: string;          // default ''
-  parallel: boolean;        // what `stage` was derived from; the config's, itself false
   onSuccess: ExitAction;    // what a clean exit does; default 'continue'
   onFailure: ExitAction;    // what a non-zero exit does; default 'stop'
-  disabled: boolean;        // default false
   cwd: string;              // absolute, resolved against the cwd it inherited
   env: NodeJS.ProcessEnv;   // added on top of the run's own environment
 }
 ```
 
-`CommandOptions` is `Command` without the parts normalization owns (`stage`,
-`line`, `script`, `type`), all optional, and with the stream settings loosened:
-a user may write `stdout: 'grouped'`, or a `Partial<Std>` naming one axis and
-leaving the other to whatever it layers onto. `CommandEntry` is that bag with a
+`CommandOptions` is what a user may set about a command: the settable parts of
+`Command`, all optional, with the stream settings loosened — a user may write
+`stdout: 'grouped'`, or a `Partial<Std>` naming one axis and leaving the other
+to whatever it layers onto — plus `output`, and the three options normalization
+reads while it lays the list out and does not keep: `parallel` (what `stage` is
+derived from), `disabled` and `recursive`. `CommandEntry` is that bag with a
 `command`; `CommandSettings` is that bag without one, plus `serial`.
 
 The two object forms are told apart by `command` and by nothing else, so a

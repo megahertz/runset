@@ -39,7 +39,6 @@ export class Logger {
     if (RANK[level] > RANK[this.level]) {
       return;
     }
-    const text = this.color ? paint(message, COLORS[level]) : message;
-    this.stream.write(`${text}\n`);
+    this.stream.write(`${paint(message, COLORS[level], this.color)}\n`);
   }
 }

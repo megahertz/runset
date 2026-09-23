@@ -109,8 +109,15 @@ export function isColorName(name: string): boolean {
   return KNOWN.has(name) || shade(name) !== undefined;
 }
 
-/** Styles text; a shade is painted from the 256-color table. */
-export function paint(text: string, colors: string[]): string {
+/**
+ * Styles text; a shade is painted from the 256-color table. Plain text when
+ * not `enabled`.
+ */
+export function paint(text: string, colors: string[], enabled = true): string {
+  if (!enabled) {
+    return text;
+  }
+
   let result = text;
   // Wrap in reverse order so backgrounds open first and close last.
   for (const name of colors.toReversed()) {
