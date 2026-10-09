@@ -27,7 +27,21 @@ export async function runset(
 export default runset;
 
 if (import.meta.main || isEntryPoint()) {
-  process.exitCode = await main(process.argv.slice(2));
+  // No top-level await: it would block require() of this module
+  main(process.argv.slice(2))
+    .then((code) => {
+      process.exitCode = code;
+    })
+    .catch((error: unknown) => {
+      console.error(error);
+      process.exitCode = 1;
+    })
+    .finally(() => {
+      setTimeout(() => {
+        console.error('runset: forced exit, a handle kept the process alive');
+        process.exit();
+      }, 500).unref();
+    });
 }
 
 /** A lone object carrying `commands` is a config; anything else is commands. */
