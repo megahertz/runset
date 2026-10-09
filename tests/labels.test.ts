@@ -482,20 +482,8 @@ describe('[labels] --wrap labels every line a long one wraps to', () => {
     expect(stdout).toBe('[a] ......\n[a] ....\n');
   });
 
-  test('is off by default', async () => {
+  test('is on by default', async () => {
     await using dir = await tempDir();
-    const { stdout } = await run(['--labels', 'all', `${DOTS}::label=a`], {
-      cwd: dir.path,
-      env: { COLUMNS: '10' },
-    });
-
-    expect(stdout).toBe('[a] ..........\n');
-  });
-
-  test('may be turned on in a config file', async () => {
-    await using dir = await tempDir();
-    await dir.write('runset.config.json', JSON.stringify({ wrap: true }));
-
     const { stdout } = await run(['--labels', 'all', `${DOTS}::label=a`], {
       cwd: dir.path,
       env: { COLUMNS: '10' },
@@ -504,16 +492,35 @@ describe('[labels] --wrap labels every line a long one wraps to', () => {
     expect(stdout).toBe('[a] ......\n[a] ....\n');
   });
 
+  test('may be turned off with --no-wrap', async () => {
+    await using dir = await tempDir();
+    const { stdout } = await run(
+      ['--no-wrap', '--labels', 'all', `${DOTS}::label=a`],
+      { cwd: dir.path, env: { COLUMNS: '10' } },
+    );
+
+    expect(stdout).toBe('[a] ..........\n');
+  });
+
+  test('may be turned off in a config file', async () => {
+    await using dir = await tempDir();
+    await dir.write('runset.config.json', JSON.stringify({ wrap: false }));
+
+    const { stdout } = await run(['--labels', 'all', `${DOTS}::label=a`], {
+      cwd: dir.path,
+      env: { COLUMNS: '10' },
+    });
+
+    expect(stdout).toBe('[a] ..........\n');
+  });
+
   test('leaves the line whole with no width to go by', async () => {
     await using dir = await tempDir();
     // Not a TTY, and no COLUMNS.
-    const { stdout } = await run(
-      ['-w', '--labels', 'all', `${DOTS}::label=a`],
-      {
-        cwd: dir.path,
-        env: { COLUMNS: '' },
-      },
-    );
+    const { stdout } = await run(['--labels', 'all', `${DOTS}::label=a`], {
+      cwd: dir.path,
+      env: { COLUMNS: '' },
+    });
 
     expect(stdout).toBe('[a] ..........\n');
   });

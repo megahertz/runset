@@ -134,7 +134,7 @@ export interface ConfigJs {
   showExitCode?: boolean;
   stderr?: Partial<Std> | string;
   stdout?: Partial<Std> | string;
-  /** Wrap labelled lines to the terminal, labelling each piece. Default: `false`. */
+  /** Wrap labelled lines to the terminal, labelling each piece. Default: `true`. */
   wrap?: boolean;
 }
 

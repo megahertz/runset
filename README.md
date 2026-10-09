@@ -200,9 +200,9 @@ show their status and duration: `✓ 2.1s`, `✗ code 1 · 2.1s`, or
 `– stopped · 2.1s`. Failure and stop lines also name the command. These lines
 follow the command's stdout settings, including grouping and redirection.
 
-`-w, --wrap` wraps long labelled lines and repeats the label on every line. It
+Long labelled lines are wrapped, with the label repeated on every line. Wrapping
 uses the terminal width, or `COLUMNS` when no terminal width is available;
-without either, lines stay whole. Wrapping is off by default.
+without either, lines stay whole. `--no-wrap` or `wrap: false` turns it off.
 
 ## Config
 
@@ -352,7 +352,7 @@ setting from the config. `--no-color` is an alias for `--color none`.
 | `--color <mode>`       | `auto` (default), `none`, `basic`, `soft`, or `all`.                                                         |
 | `--show-command`       | Print each command when it starts; default: off.                                                             |
 | `--show-exit-code`     | Print each command's exit status and duration; default: off.                                                 |
-| `-w, --wrap`           | Wrap long labelled lines, repeating the label; default: off.                                                 |
+| `--no-wrap`            | Leave long labelled lines whole instead of wrapping them with the label repeated.                            |
 | `--log-level <level>`  | Filter runset's own messages: `error`, `warn`, `info` (default), or `debug`. Does not filter command output. |
 
 ### Configuration and help

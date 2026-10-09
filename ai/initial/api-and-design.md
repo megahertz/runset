@@ -195,7 +195,7 @@ interface ConfigJs {
   color?: ColorMode; // 'auto' | 'none' | 'basic' | 'soft' | 'all'; default 'auto'
   parallel?: boolean; // the default `parallel` for every command; default false
   labels?: 'none' | 'auto' | 'custom' | 'all'; // who is labelled; default 'auto'
-  wrap?: boolean; // wrap labelled lines to the terminal; default false
+  wrap?: boolean; // wrap labelled lines to the terminal; default true
   formatLabel?: LabelFormatter; // renders the prefix; asked once per line
   logLevel?: 'error' | 'warn' | 'info' | 'debug';
   dryRun?: boolean; // print the resolved commands and run nothing

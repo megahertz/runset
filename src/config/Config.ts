@@ -155,7 +155,7 @@ export class Config {
     this.recursive = options.recursive ?? file.recursive ?? false;
     this.showCommand = options.showCommand ?? file.showCommand ?? false;
     this.showExitCode = options.showExitCode ?? file.showExitCode ?? false;
-    this.wrap = options.wrap ?? file.wrap ?? false;
+    this.wrap = options.wrap ?? file.wrap ?? true;
     this.envColumns = parseColumns(env.COLUMNS);
     this.labels = options.labels ?? file.labels ?? 'auto';
     this.onSuccess = options.onSuccess ?? file.onSuccess ?? 'continue';
