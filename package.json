@@ -1,6 +1,6 @@
 {
   "name": "runset",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "description": "Run npm scripts and shell commands in parallel or sequence, with glob matching, reusable pipelines, colored labels, and grouped output",
   "keywords": [
     "npm-run-all",
