@@ -272,6 +272,7 @@ builds, then both tests. Both builds must finish before either test starts.
 import runset from 'runset';
 
 await runset(['lint', 'test', 'build']);
+await runset('build', './packages/api'); // a string is the cwd
 await runset({ commands: ['lint', 'test'], parallel: true, jobs: 2 });
 ```
 

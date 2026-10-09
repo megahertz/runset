@@ -15,11 +15,11 @@ export * from './utils/errors.ts';
 export async function runset(config: ConfigJs): Promise<Run>;
 export async function runset(
   commands: CommandDefinition | CommandDefinition[],
-  configJs?: ConfigJs,
+  configJs?: ConfigJs | string,
 ): Promise<Run>;
 export async function runset(
   first: CommandDefinition | CommandDefinition[] | ConfigJs,
-  second?: ConfigJs,
+  second?: ConfigJs | string,
 ): Promise<Run> {
   return Run.fromConfigJs(toConfigJs(first, second)).start();
 }
@@ -44,10 +44,13 @@ if (import.meta.main || isEntryPoint()) {
     });
 }
 
-/** A lone object carrying `commands` is a config; anything else is commands. */
+/**
+ * A lone object carrying `commands` is a config; anything else is commands.
+ * A string second argument is shorthand for `{ cwd }`.
+ */
 function toConfigJs(
   first: CommandDefinition | CommandDefinition[] | ConfigJs,
-  second: ConfigJs | undefined,
+  second: ConfigJs | string | undefined,
 ): ConfigJs {
   if (second === undefined && isConfigObject(first)) {
     return first;
@@ -57,7 +60,8 @@ function toConfigJs(
     ? (first as CommandDefinition[])
     : [first as CommandDefinition];
 
-  return { ...second, commands };
+  const configJs = typeof second === 'string' ? { cwd: second } : second;
+  return { ...configJs, commands };
 }
 
 function isConfigObject(

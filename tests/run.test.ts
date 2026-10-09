@@ -164,6 +164,13 @@ describe('[run] Run.fromConfigJs builds a run without starting it', () => {
       expect(await dir.read('out.log')).toMatch(/down-here/);
     });
 
+    test('a string second argument is the run cwd', async () => {
+      await using dir = await tempDir();
+      await runset('test-task:append a', dir.path);
+
+      expect(await dir.result()).toBe('aa');
+    });
+
     test('an npm script runs from the package root, not from --cwd', async () => {
       await using dir = await tempDir();
       // `tasks/` has no package.json of its own, so the manifest is found one

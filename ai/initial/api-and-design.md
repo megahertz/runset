@@ -539,6 +539,9 @@ await runset({
 });
 ```
 
+The second argument may also be a string, shorthand for `{ cwd }`:
+`runset('build', './packages/api')`.
+
 Both call forms reach the same `Config`, so equivalent inputs resolve
 identically. They are told apart by the **argument count** and by the shape: a
 lone object carrying `commands` is the configuration, and anything else is the
