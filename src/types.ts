@@ -28,6 +28,8 @@ export interface Command {
   command: string;
   cwd: string;
   env: NodeJS.ProcessEnv;
+  /** What a `function` command calls. */
+  fn?: TaskFunction;
   label: string;
   /** What is handed to the shell: for an npm command, the script's body. */
   line: string;
@@ -41,8 +43,35 @@ export interface Command {
   stage: number;
   stderr: Std;
   stdout: Std;
-  type: 'npm' | 'shell';
+  type: 'function' | 'npm' | 'shell';
 }
+
+/** What a command written as a function is handed. */
+export interface TaskContext {
+  /** The command's resolved directory; the process's own is left alone. */
+  cwd: string;
+  /** The command's environment; `process.env` is left alone. */
+  env: NodeJS.ProcessEnv;
+  /** Aborted when runset stops the command. */
+  signal: AbortSignal;
+  /** Prefixed and routed like a child's; `console.error` lands here too. */
+  stderr: NodeJS.WritableStream;
+  /** Prefixed and routed like a child's; `console.log` lands here too. */
+  stdout: NodeJS.WritableStream;
+}
+
+/** Ends a service once the run is over. */
+export type StopFunction = () => Promise<void> | void;
+
+/**
+ * A command written as a function. Resolving with nothing is a task that has
+ * finished; resolving with a function is a service that is ready — the next
+ * stage starts — and the function is how runset stops it when the run ends.
+ */
+export type TaskFunction = (
+  context: TaskContext,
+  // oxlint-disable-next-line no-invalid-void-type -- what `async () => {}` returns
+) => Promise<StopFunction | void> | StopFunction | void;
 
 export type LabelFormatter = (context: {
   /** Whether runset is emitting ANSI color at all. */
@@ -69,14 +98,17 @@ export interface CommandOptions {
   output?: Partial<Std> | string;
   /** Join the group of commands beside it rather than open a stage of its own. */
   parallel?: boolean;
-  /** Run an npm script in every workspace package that has it. */
+  /**
+   * Run an npm script in every workspace package that has it; a function runs
+   * once per package, but only when its own entry says so.
+   */
   recursive?: boolean;
   stderr?: Partial<Std> | string;
   stdout?: Partial<Std> | string;
 }
 
 /** One command written as an object; `command` is what makes it one. */
-export type CommandEntry = { command: string } & CommandOptions;
+export type CommandEntry = { command: string | TaskFunction } & CommandOptions;
 
 /**
  * Defaults for the entries after it — the config spelling of `-p`/`-s`:

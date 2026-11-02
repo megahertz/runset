@@ -16,10 +16,12 @@ import type {
   CommandOptions,
   CommandSettings,
   Std,
+  TaskFunction,
 } from '../types.ts';
 import { NormalizeError } from '../utils/errors.ts';
 import type { PackageInfo } from '../utils/fs.ts';
 import { isGlob, matchGlob } from '../utils/glob.ts';
+import { isPlainObject } from '../utils/object.ts';
 import { toKebabCase } from '../utils/string.ts';
 import { readWorkspacePackages } from '../utils/workspace.ts';
 import { substitutePlaceholders } from './placeholders.ts';
@@ -42,6 +44,10 @@ const SETTINGS_OPTIONS = new Set([...INLINE_OPTIONS, 'env', 'serial']);
  */
 export function normalize(config: Config, packageInfo: PackageInfo): Command[] {
   let workspacePackages: PackageInfo[] | undefined;
+  function packages(): PackageInfo[] {
+    workspacePackages ??= readWorkspacePackages(config.cwd);
+    return workspacePackages;
+  }
 
   const defaults: Command = {
     bgColor: '',
@@ -64,6 +70,7 @@ export function normalize(config: Config, packageInfo: PackageInfo): Command[] {
     rawOptions: CommandOptions,
     script: string | undefined,
     pkg = packageInfo,
+    fn?: TaskFunction,
   ): Command {
     // Read while the list is laid out; none of them is the command's own.
     const { disabled, parallel, recursive, ...own } = rawOptions;
@@ -88,12 +95,17 @@ export function normalize(config: Config, packageInfo: PackageInfo): Command[] {
       line,
       stage: 0,
       type: script === undefined ? 'shell' : 'npm',
+      ...(fn === undefined ? {} : { fn, type: 'function' }),
       ...(script === undefined ? {} : { scriptName: script }),
       ...(pkg === packageInfo ? {} : { packageName: packageNameOf(pkg) }),
     };
 
-    // Like `npm run`, a script runs from the package root unless given a cwd.
-    if (script !== undefined && options.cwd === undefined) {
+    // Like `npm run`, a script — or a function run per package — runs from
+    // the package root unless given a cwd.
+    if (
+      (script !== undefined || pkg !== packageInfo) &&
+      options.cwd === undefined
+    ) {
       leaf.cwd = pkg.filePath === '' ? config.cwd : path.dirname(pkg.filePath);
     }
 
@@ -101,6 +113,29 @@ export function normalize(config: Config, packageInfo: PackageInfo): Command[] {
     validateCommand(leaf, { disabled, parallel, recursive });
 
     return leaf;
+  }
+
+  function resolveFunction(
+    fn: TaskFunction,
+    options: CommandOptions,
+    inherited: CommandOptions,
+    overrides: CommandOptions,
+  ): Segment {
+    const settled = layer(inherited, options, overrides);
+    const token = { args: '', name: functionName(fn), options: '' };
+    const leaf = (pkg?: PackageInfo) =>
+      makeLeaf(token, settled, undefined, pkg, fn);
+
+    // Only its own `recursive`: inherited from `-r`, it would start one
+    // database per package.
+    if ((overrides.recursive ?? options.recursive) && packages().length > 0) {
+      return toSegment(
+        packages().map((pkg) => leaf(pkg)),
+        settled,
+      );
+    }
+
+    return toSegment([leaf()], settled);
   }
 
   /** Links one token's commands (e.g. glob matches) by their `parallel`. */
@@ -131,13 +166,22 @@ export function normalize(config: Config, packageInfo: PackageInfo): Command[] {
         throw new NormalizeError(`Command "${token.name}" refers to itself.`);
       }
 
+      const entry = config.scripts[token.name];
       // The token's `::options` outrank the entry's own.
       const resolved = resolveEntry(
-        config.scripts[token.name],
+        entry,
         inherited,
         layer(inline, overrides),
         new Set([...seen, token.name]),
       );
+
+      // A function is called by the name it was given here.
+      if (isPlainObject(entry) && typeof entry.command === 'function') {
+        for (const leaf of resolved.commands) {
+          leaf.command = token.name;
+          leaf.line = token.name;
+        }
+      }
 
       return token.args === '' ? resolved : appendArgs(resolved, token);
     }
@@ -147,8 +191,7 @@ export function normalize(config: Config, packageInfo: PackageInfo): Command[] {
     if (settled.recursive ?? config.recursive) {
       // Every workspace package that has the script; none is not an error,
       // the token then resolves as it would without `recursive`.
-      workspacePackages ??= readWorkspacePackages(config.cwd);
-      const leaves = workspacePackages.flatMap((pkg) =>
+      const leaves = packages().flatMap((pkg) =>
         matchScripts(token.name, pkg).map((name) =>
           makeLeaf({ ...token, name }, settled, name, pkg),
         ),
@@ -175,6 +218,12 @@ export function normalize(config: Config, packageInfo: PackageInfo): Command[] {
     if (segment.commands.length !== 1 || leaf === undefined) {
       throw new NormalizeError(
         `Cannot pass arguments to "${token.name}": it expands to more than one command.`,
+      );
+    }
+
+    if (leaf.type === 'function') {
+      throw new NormalizeError(
+        `Cannot pass arguments to "${token.name}": it is a function.`,
       );
     }
 
@@ -215,12 +264,18 @@ export function normalize(config: Config, packageInfo: PackageInfo): Command[] {
 
     const entry = definition as CommandEntry;
 
-    if (typeof entry.command !== 'string') {
-      throw new NormalizeError('A command\'s "command" must be a string.');
-    }
-
     const { command, ...raw } = entry;
     const options = resolveCwd(raw, inherited.cwd ?? config.cwd);
+
+    if (typeof command === 'function') {
+      return resolveFunction(command, options, inherited, overrides);
+    }
+
+    if (typeof command !== 'string') {
+      throw new NormalizeError(
+        'A command\'s "command" must be a string or a function.',
+      );
+    }
 
     return resolveToken(command, layer(inherited, options), overrides, seen);
   }
@@ -302,6 +357,14 @@ function matchScripts(name: string, pkg: PackageInfo): string[] {
     return matchGlob(name, Object.keys(pkg.scripts));
   }
   return Object.hasOwn(pkg.scripts, name) ? [name] : [];
+}
+
+/**
+ * What a function is called by: its own name, unless it has none — or only
+ * the one JS gives `{ command: () => … }`.
+ */
+function functionName(fn: TaskFunction): string {
+  return fn.name === '' || fn.name === 'command' ? 'function' : fn.name;
 }
 
 function packageNameOf(pkg: PackageInfo): string {

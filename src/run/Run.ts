@@ -7,6 +7,7 @@ import { paint } from '../utils/colors.ts';
 import { RunsetError } from '../utils/errors.ts';
 import { signalExitCode } from '../utils/os.ts';
 import { isTerminal } from '../utils/terminal.ts';
+import { captureOutput } from './capture.ts';
 import { FileRegistry } from './FileRegistry.ts';
 import { Logger } from './Logger.ts';
 import { defaultLabel } from './prefix.ts';
@@ -22,6 +23,8 @@ export class Run {
 
   private readonly logger: Logger;
   private readonly files: FileRegistry;
+  /** Ready services, in the order they became ready. */
+  private readonly services: Process[] = [];
   private stopping: StopState | undefined;
 
   constructor({ commands, config, packageInfo }: Plan) {
@@ -37,6 +40,7 @@ export class Run {
     );
 
     const context = {
+      addService: (process: Process) => this.services.push(process),
       config,
       files: this.files,
       logger: this.logger,
@@ -85,6 +89,12 @@ export class Run {
     // `on`, not `once`: a second signal skips the kill timeout.
     process.on('SIGINT', onSigint);
     process.on('SIGTERM', onSigterm);
+    // Only while functions run: a function's console output is its own.
+    const release = this.processes.some(
+      (process) => process.command.type === 'function',
+    )
+      ? captureOutput()
+      : undefined;
 
     try {
       await schedule(
@@ -93,8 +103,17 @@ export class Run {
         this.config.jobs,
       );
     } finally {
+      // Everything has exited: only a second signal hurries what is left.
+      this.clearKillTimer();
+      // Last, and newest first: whatever ran may have used them to the end.
+      for (const service of this.services.toReversed()) {
+        // oxlint-disable-next-line no-await-in-loop
+        await service.stop(this.config.killTimeout);
+      }
+      release?.();
       process.off('SIGINT', onSigint);
       process.off('SIGTERM', onSigterm);
+      // Again: a signal while the services stopped may have set another.
       this.clearKillTimer();
       await this.files.closeAll();
     }

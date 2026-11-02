@@ -1,10 +1,18 @@
 import cp from 'node:child_process';
+import { Writable } from 'node:stream';
+import { inspect } from 'node:util';
 import type { Config } from '../config/Config.ts';
-import type { Command, TerminateOptions } from '../types.ts';
+import type {
+  Command,
+  StopFunction,
+  TaskFunction,
+  TerminateOptions,
+} from '../types.ts';
 import { paint } from '../utils/colors.ts';
 import type { PackageInfo } from '../utils/fs.ts';
 import { signalExitCode } from '../utils/os.ts';
 import { formatDuration } from '../utils/string.ts';
+import { type CaptureTarget, runCaptured } from './capture.ts';
 import { createEnv } from './env.ts';
 import type { FileRegistry } from './FileRegistry.ts';
 import type { Logger } from './Logger.ts';
@@ -15,6 +23,8 @@ const USE_PROCESS_GROUPS = process.platform !== 'win32';
 
 /** What every process in a run shares. */
 export interface RunContext {
+  /** A function resolved with a stop function: a service is up. */
+  addService: (process: Process) => void;
   config: Config;
   files: FileRegistry;
   logger: Logger;
@@ -23,10 +33,15 @@ export interface RunContext {
   requestStop: () => void;
 }
 
-/** One command, running in one shell, restarted as its exit policy says. */
+/**
+ * One command, running in one shell or as a function, restarted as its exit
+ * policy says.
+ */
 export class Process {
   /** `undefined` when killed by a signal. */
   exitCode: number | undefined;
+  /** What a function rejected with. */
+  error: unknown;
   signal: NodeJS.Signals | undefined;
   started = false;
   /** True when runset stopped this command rather than letting it finish. */
@@ -36,6 +51,12 @@ export class Process {
   readonly command: Command;
 
   private child: cp.ChildProcess | undefined;
+  /** A running function's abort switch. */
+  private controller: AbortController | undefined;
+  /** Settles on a forced stop: runset waits for nothing of this one. */
+  private hurried = Promise.withResolvers<typeof GIVEN_UP>();
+  /** A ready service's, until the run ends and calls it. */
+  private stopService: StopFunction | undefined;
   /** When the current attempt was spawned, from `performance.now()`. */
   private attemptStart = 0;
   private readonly context: RunContext;
@@ -91,8 +112,9 @@ export class Process {
         this.stdout.writeLine(`${run} ${this.command.command}`);
       }
 
+      const { fn } = this.command;
       // oxlint-disable-next-line no-await-in-loop
-      await this.spawn();
+      await (fn === undefined ? this.spawn() : this.call(fn));
 
       // Before the flush, so a grouped stream holds it with the output.
       if (showExitCode) {
@@ -105,7 +127,8 @@ export class Process {
         `< ${this.command.line} ${this.describeExit()}`,
       );
 
-      if (this.terminated) {
+      // A ready service has not exited: no policy applies until it does.
+      if (this.terminated || this.stopService !== undefined) {
         break;
       }
 
@@ -133,6 +156,12 @@ export class Process {
     force = false,
     signal = 'SIGTERM',
   }: TerminateOptions = {}): void {
+    // A function can only be asked; forced, runset stops waiting for it, and
+    // for a ready service's stop function too.
+    if (force) {
+      this.hurried.resolve(GIVEN_UP);
+    }
+
     // An ended command keeps its own verdict.
     if (this.finished) {
       return;
@@ -146,6 +175,44 @@ export class Process {
     }
 
     this.kill(sent);
+    this.controller?.abort();
+  }
+
+  /**
+   * Calls a ready service's stop function, waiting up to `timeout` — or not
+   * at all once forced. A stop that fails only warns.
+   */
+  async stop(timeout: number): Promise<void> {
+    const stop = this.stopService;
+    if (stop === undefined) {
+      return;
+    }
+    this.stopService = undefined;
+    // A force from before the stop phase is no reason to skip this one.
+    this.hurried = Promise.withResolvers();
+
+    let timer: NodeJS.Timeout | undefined;
+    const timedOut = new Promise<'timeout'>((resolve) => {
+      timer = setTimeout(() => resolve('timeout'), timeout);
+    });
+
+    try {
+      const stopped = runCaptured(this.captureTarget(), stop);
+      const result = await Promise.race([
+        stopped,
+        timedOut,
+        this.hurried.promise,
+      ]);
+      if (result === 'timeout') {
+        this.warn(`did not stop within ${timeout}ms`);
+      }
+    } catch (error) {
+      this.warn(`failed to stop: ${errorMessage(error)}`);
+    } finally {
+      clearTimeout(timer);
+      this.stdout.flush();
+      this.stderr.flush();
+    }
   }
 
   /**
@@ -158,7 +225,8 @@ export class Process {
     const duration = formatDuration(performance.now() - this.attemptStart);
 
     if (this.exitCode === 0 && this.signal === undefined && !this.terminated) {
-      return `${paint('✓', ['green'], colored)} ${duration}`;
+      const ready = this.stopService === undefined ? '' : ' ready ·';
+      return `${paint('✓', ['green'], colored)}${ready} ${duration}`;
     }
 
     // Whatever it died of, runset asked for it: not a failure of its own.
@@ -171,6 +239,9 @@ export class Process {
 
   /** `code N`, the signal's name, or `stopped`. */
   private shortExit(): string {
+    if (this.error !== undefined) {
+      return 'failed';
+    }
     if (this.signal !== undefined) {
       return this.signal;
     }
@@ -180,6 +251,9 @@ export class Process {
 
   /** `exited with code N`, `was killed by SIGTERM`, or `was stopped`. */
   describeExit(): string {
+    if (this.error !== undefined) {
+      return `failed: ${errorMessage(this.error)}`;
+    }
     if (this.signal !== undefined) {
       return `was killed by ${this.signal}`;
     }
@@ -206,6 +280,95 @@ export class Process {
     return { COLUMNS: String(Math.max(1, columns - width)) };
   }
 
+  /** The environment a command runs in. */
+  private env(): NodeJS.ProcessEnv {
+    const { command, context } = this;
+    return createEnv({
+      base: { ...context.config.env, ...command.env, ...this.columnsEnv() },
+      cwd: command.cwd,
+      packageInfo: context.packageInfo,
+      scriptName: command.scriptName,
+    });
+  }
+
+  private captureTarget(): CaptureTarget {
+    return {
+      stderr: (chunk) => this.stderr.write(chunk),
+      stdout: (chunk) => this.stdout.write(chunk),
+    };
+  }
+
+  /** `runset: db did not stop`, under the command's label or name. */
+  private warn(message: string): void {
+    const name = this.command.label.trim() || this.command.command;
+    this.context.logger.warn(`runset: ${name} ${message}`);
+  }
+
+  /**
+   * One attempt of a function: resolves when it settles, or once runset gives
+   * up on it. Resolving with a function makes it a service that is ready.
+   */
+  private async call(fn: TaskFunction): Promise<void> {
+    const { command, context } = this;
+    this.exitCode = undefined;
+    this.error = undefined;
+    this.signal = undefined;
+    this.attemptStart = performance.now();
+    context.logger.debug(`> ${command.line}`);
+
+    const controller = new AbortController();
+    this.controller = controller;
+    // Terminated between construction and the call.
+    if (this.terminated) {
+      controller.abort();
+    }
+
+    const target = this.captureTarget();
+    const taskContext = {
+      cwd: command.cwd,
+      env: this.env(),
+      signal: controller.signal,
+      stderr: toWritable(target.stderr),
+      stdout: toWritable(target.stdout),
+    };
+
+    const running = runCaptured(target, () => fn(taskContext));
+
+    try {
+      const result = await Promise.race([running, this.hurried.promise]);
+
+      if (result === GIVEN_UP) {
+        this.warn('did not stop');
+        // Should it come up after all, it is stopped there and then.
+        running
+          .then(async (late) => {
+            if (typeof late === 'function') {
+              await late();
+            }
+          })
+          .catch(() => {});
+        return;
+      }
+
+      // Kept even when stopped meanwhile: it is up, and needs stopping.
+      if (typeof result === 'function') {
+        this.stopService = result;
+        context.addService(this);
+      }
+
+      this.exitCode = this.terminated ? undefined : 0;
+    } catch (error) {
+      // Rejecting on the abort is how a function says it stopped.
+      if (!this.terminated) {
+        this.error = error;
+        this.exitCode = 1;
+        this.stderr.writeLine(inspect(error));
+      }
+    } finally {
+      this.controller = undefined;
+    }
+  }
+
   /** One attempt: resolves when the child is gone. */
   private async spawn(): Promise<void> {
     const { command, context } = this;
@@ -221,12 +384,7 @@ export class Process {
       const child = cp.spawn(command.line, {
         cwd: command.cwd,
         detached: USE_PROCESS_GROUPS,
-        env: createEnv({
-          base: { ...context.config.env, ...command.env, ...this.columnsEnv() },
-          cwd: command.cwd,
-          packageInfo: context.packageInfo,
-          scriptName: command.scriptName,
-        }),
+        env: this.env(),
         shell: true,
         stdio: ['inherit', 'pipe', 'pipe'],
       });
@@ -288,6 +446,23 @@ export class Process {
       // Already gone.
     }
   }
+}
+
+const GIVEN_UP = Symbol('given up');
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+/** A stream for `context.stdout`, writing into one of the command's sinks. */
+function toWritable(write: (chunk: string) => void): Writable {
+  return new Writable({
+    decodeStrings: false,
+    write(chunk: Buffer | string, _encoding, done) {
+      write(String(chunk));
+      done();
+    },
+  });
 }
 
 /**
