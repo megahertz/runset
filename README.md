@@ -310,12 +310,16 @@ and supply defaults for the following commands.
 Settings entries also accept `serial: true` as the opposite of `parallel: true`.
 Each settings entry that sets `parallel` or `serial` starts a new group.
 
-For a custom label renderer, set the run-wide, config-only `formatLabel`
-function. It receives `{ command, color, defaultPrefix, stream }` and returns
-the prefix string, for example:
+Two run-wide, config-only functions customize labels:
+
+- `transformLabel({ command, label })` renames automatic labels; an explicit
+  `label` wins, and `undefined` keeps the name.
+- `decoratePrefix({ command, color, defaultPrefix, plainPrefix, stream })`
+  decorates each line's prefix. Rename with `transformLabel`, not here.
 
 ```ts
-formatLabel: ({ defaultPrefix }) => `${new Date().toISOString()} ${defaultPrefix}`,
+transformLabel: ({ label }) => ({ 'internal-storage-api': 'storage' })[label],
+decoratePrefix: ({ defaultPrefix }) => `${new Date().toISOString()} ${defaultPrefix}`,
 ```
 
 ## CLI flags

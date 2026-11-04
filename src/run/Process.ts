@@ -17,7 +17,7 @@ import { createEnv } from './env.ts';
 import type { FileRegistry } from './FileRegistry.ts';
 import type { Logger } from './Logger.ts';
 import { OutputSink } from './OutputSink.ts';
-import { makePrefix, prefixWidth } from './prefix.ts';
+import { makePrefix } from './prefix.ts';
 
 const USE_PROCESS_GROUPS = process.platform !== 'win32';
 
@@ -67,12 +67,12 @@ export class Process {
     this.command = command;
     this.context = context;
 
-    const { color, formatLabel } = context.config;
+    const { color, decoratePrefix } = context.config;
     const colored = color !== 'none';
     const sink = (stream: 'stderr' | 'stdout') =>
       new OutputSink(
         command[stream],
-        makePrefix(command, colored, formatLabel, stream),
+        makePrefix(command, colored, decoratePrefix, stream),
         context,
       );
     this.stdout = sink('stdout');
@@ -273,10 +273,7 @@ export class Process {
       return {};
     }
 
-    const width = prefixWidth(
-      this.command,
-      this.context.config.color !== 'none',
-    );
+    const width = this.stdout.prefixColumns();
     return { COLUMNS: String(Math.max(1, columns - width)) };
   }
 

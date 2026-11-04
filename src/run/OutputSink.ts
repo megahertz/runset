@@ -18,6 +18,8 @@ export class OutputSink {
   /** The columns a fixed prefix takes; measured per line otherwise. */
   private readonly prefixWidth: number | undefined;
   private readonly context: Pick<RunContext, 'config' | 'files'>;
+  /** A decorated prefix's width, sampled once. */
+  private sampledWidth: number | undefined;
 
   constructor(
     std: Std,
@@ -51,6 +53,14 @@ export class OutputSink {
       return undefined;
     }
     return terminalColumns(this.target) ?? envColumns;
+  }
+
+  /** The columns the prefix takes; a decorated one is sampled once. */
+  prefixColumns(): number {
+    this.sampledWidth ??= visibleWidth(
+      typeof this.prefix === 'string' ? this.prefix : this.prefix(),
+    );
+    return this.sampledWidth;
   }
 
   write(chunk: string): void {

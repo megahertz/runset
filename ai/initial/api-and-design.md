@@ -119,14 +119,25 @@ either of them closes the group in front of it the way the flag does.
   label picked out of the palette — the same label lands on the same color in
   every run, and two labels that want one entry are pulled apart so they still
   read as two.
-- A config's `formatLabel` renders the prefix in place of runset's own, and is
-  asked once per line so it may carry a clock or a counter:
+- A config's `transformLabel` renames automatic labels before they are numbered,
+  colored and padded. An explicit `label` wins; `undefined` keeps the name.
 
   ```ts
-  type LabelFormatter = (context: {
+  type LabelTransformer = (context: {
+    command: Command;
+    label: string; // runset's automatic name: package, script or program
+  }) => string | undefined;
+  ```
+
+- A config's `decoratePrefix` decorates the prefix, asked once per line. A
+  child's `COLUMNS` is sized by one sample of it:
+
+  ```ts
+  type PrefixDecorator = (context: {
     command: Command; // `label` already padded
     color: boolean; // whether ANSI color is wanted
     defaultPrefix: string; // runset's own answer, to decorate
+    plainPrefix: string; // the padded label + space, no color or brackets
     stream: 'stderr' | 'stdout';
   }) => string;
   ```
@@ -196,7 +207,8 @@ interface ConfigJs {
   parallel?: boolean; // the default `parallel` for every command; default false
   labels?: 'none' | 'auto' | 'custom' | 'all'; // who is labelled; default 'auto'
   wrap?: boolean; // wrap labelled lines to the terminal; default true
-  formatLabel?: LabelFormatter; // renders the prefix; asked once per line
+  transformLabel?: LabelTransformer; // renames automatic labels at plan time
+  decoratePrefix?: PrefixDecorator; // decorates the prefix; asked once per line
   logLevel?: 'error' | 'warn' | 'info' | 'debug';
   dryRun?: boolean; // print the resolved commands and run nothing
   env?: Record<string, string>; // added to every command's environment
@@ -259,7 +271,8 @@ class Config {
   color: ColorLevel; // the mode, `auto` resolved from env / the destinations below
   parallel: boolean; // default false
   labels: LabelMode; // default 'auto'
-  formatLabel: LabelFormatter | undefined;
+  transformLabel: LabelTransformer | undefined;
+  decoratePrefix: PrefixDecorator | undefined;
   logLevel: 'error' | 'warn' | 'info' | 'debug';
   dryRun: boolean;
   stdout: Std;

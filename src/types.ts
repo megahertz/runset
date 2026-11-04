@@ -73,13 +73,23 @@ export type TaskFunction = (
   // oxlint-disable-next-line no-invalid-void-type -- what `async () => {}` returns
 ) => Promise<StopFunction | void> | StopFunction | void;
 
-export type LabelFormatter = (context: {
+/** Renames an automatic label; `undefined` keeps it. */
+export type LabelTransformer = (context: {
+  command: Command;
+  /** runset's automatic name: package, script or program. */
+  label: string;
+}) => string | undefined;
+
+/** Decorates a line prefix; rename with `transformLabel` instead. */
+export type PrefixDecorator = (context: {
   /** Whether runset is emitting ANSI color at all. */
   color: boolean;
   /** Its `label` is already padded. */
   command: Command;
-  /** runset's own prefix, to decorate rather than replace. */
+  /** runset's own prefix: colored label + space, or `[label] ` without color. */
   defaultPrefix: string;
+  /** The padded label + space, no color or brackets. */
+  plainPrefix: string;
   stream: 'stderr' | 'stdout';
 }) => string;
 
@@ -131,16 +141,10 @@ export interface ConfigJs {
   color?: ColorMode;
   commands?: CommandDefinition[];
   cwd?: string;
+  /** Decorates each labelled line's prefix; asked once per line. */
+  decoratePrefix?: PrefixDecorator;
   dryRun?: boolean;
   env?: Record<string, string>;
-  /**
-   * Renders the prefix of each labelled output line.
-   *
-   * ```js
-   * formatLabel: ({ defaultPrefix }) => `${new Date().toISOString()} ${defaultPrefix}`,
-   * ```
-   */
-  formatLabel?: LabelFormatter;
   /** Max commands running at once. Default: unlimited. */
   jobs?: number;
   /** Milliseconds from SIGTERM/SIGINT to SIGKILL; `0` for none. Default: 5000. */
@@ -166,6 +170,8 @@ export interface ConfigJs {
   showExitCode?: boolean;
   stderr?: Partial<Std> | string;
   stdout?: Partial<Std> | string;
+  /** Renames automatic labels; an explicit `label` wins. */
+  transformLabel?: LabelTransformer;
   /** Wrap labelled lines to the terminal, labelling each piece. Default: `true`. */
   wrap?: boolean;
 }

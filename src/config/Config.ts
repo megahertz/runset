@@ -7,9 +7,10 @@ import type {
   ConfigJs,
   ConfigJsExport,
   ExitAction,
-  LabelFormatter,
   LabelMode,
+  LabelTransformer,
   LogLevel,
+  PrefixDecorator,
   Std,
 } from '../types.ts';
 import type { ColorLevel } from '../utils/colors.ts';
@@ -24,6 +25,7 @@ import {
   booleanError,
   check,
   envError,
+  functionError,
   numberError,
   oneOfError,
   stdError,
@@ -45,9 +47,9 @@ const KNOWN_KEYS: Record<keyof ConfigJs, true> = {
   color: true,
   commands: true,
   cwd: true,
+  decoratePrefix: true,
   dryRun: true,
   env: true,
-  formatLabel: true,
   jobs: true,
   killTimeout: true,
   labels: true,
@@ -62,6 +64,7 @@ const KNOWN_KEYS: Record<keyof ConfigJs, true> = {
   showExitCode: true,
   stderr: true,
   stdout: true,
+  transformLabel: true,
   wrap: true,
 };
 
@@ -103,7 +106,8 @@ export class Config {
   readonly labels: LabelMode;
   readonly logLevel: LogLevel;
   readonly dryRun: boolean;
-  readonly formatLabel: LabelFormatter | undefined;
+  readonly decoratePrefix: PrefixDecorator | undefined;
+  readonly transformLabel: LabelTransformer | undefined;
   readonly stdout: Std;
   readonly stderr: Std;
   readonly destinations: Destinations;
@@ -163,7 +167,8 @@ export class Config {
     this.dryRun = options.dryRun ?? file.dryRun ?? false;
     this.logLevel = options.logLevel ?? file.logLevel ?? 'info';
     this.color = resolveColor(options.color ?? file.color, env, destinations);
-    this.formatLabel = file.formatLabel;
+    this.decoratePrefix = file.decoratePrefix;
+    this.transformLabel = file.transformLabel;
 
     // A setting may name one axis and leave the other to what it layers onto.
     const streams = layerStreams(
@@ -190,9 +195,8 @@ export class Config {
       oneOfError('labels', this.labels, LABEL_MODES),
       stdError('stdout', this.stdout),
       stdError('stderr', this.stderr),
-      this.formatLabel !== undefined && typeof this.formatLabel !== 'function'
-        ? 'formatLabel must be a function.'
-        : undefined,
+      functionError('decoratePrefix', this.decoratePrefix),
+      functionError('transformLabel', this.transformLabel),
       isPlainObject(this.scripts) ? undefined : 'scripts must be an object.',
       actionError('onSuccess', this.onSuccess),
       actionError('onFailure', this.onFailure),

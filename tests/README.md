@@ -15,7 +15,7 @@ what changed shape, and what was dropped.
 | `pattern.test.ts`      | glob expansion over `package.json` script names                                                         |
 | `placeholders.test.ts` | `{1}`, `{@}`, `{*}`, literal argv and unchanged command names/options                                   |
 | `output.test.ts`       | `--stdout` / `--stderr` / `-o`, labels, file destinations                                               |
-| `prefix.test.ts`       | automatic prefixes, labels, colours, `formatLabel`                                                      |
+| `prefix.test.ts`       | automatic prefixes, labels, colours, `transformLabel`, `decoratePrefix`                                 |
 | `restart.test.ts`      | unlimited restarts, and the ways a run ends one                                                         |
 | `exit.test.ts`         | exit policies, signals and their exit codes, `--kill-timeout`                                           |
 | `config.test.ts`       | `runset.config.*`, `scripts`, library API                                                               |

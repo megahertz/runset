@@ -180,18 +180,28 @@ them too.
 
 ### A prefix of your own
 
-A JS or TS config file — or a library caller — may render the prefix itself with
-`formatLabel`, which is asked once per line and handed runset's own answer to
-decorate:
+A config file or library caller may rename automatic labels with
+`transformLabel`:
 
 ```js
 module.exports = {
-  formatLabel: ({ command, color, defaultPrefix, stream }) =>
+  transformLabel: ({ label }) => ({ 'license-verifier': 'lic' })[label],
+};
+```
+
+Numbering, colors and padding all use the new name. A `label` of your own wins;
+`undefined` keeps the name; a blank or multi-line answer is refused.
+
+`decoratePrefix` decorates the prefix, once per line:
+
+```js
+module.exports = {
+  decoratePrefix: ({ defaultPrefix }) =>
     `${new Date().toISOString().slice(11, 23)} ${defaultPrefix}`,
 };
 ```
 
-It is only ever called for commands that have a label.
+It is called only for labelled commands and should not change the label's text.
 
 ## Run mode
 

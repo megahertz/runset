@@ -1,6 +1,6 @@
 import { fileURLToPath } from 'node:url';
 import { describe, expect, test } from 'vitest';
-import { Run, runset } from '../src/index.ts';
+import { type Command, Run, runset } from '../src/index.ts';
 import { BASIC_PALETTE, paletteIndex } from '../src/utils/colors.ts';
 import { run, runWithError } from './helpers/cli.ts';
 import { fixturePath, tempDir } from './helpers/tempDir.ts';
@@ -303,7 +303,7 @@ describe('[labels] runset tags interleaved output with its command', () => {
     });
   });
 
-  describe('formatLabel', () => {
+  describe('decoratePrefix', () => {
     test('a config file may render the prefix itself', async () => {
       await using dir = await tempDir();
       await dir.write(
@@ -311,7 +311,7 @@ describe('[labels] runset tags interleaved output with its command', () => {
         [
           'module.exports = {',
           "  labels: 'all',",
-          '  formatLabel: ({ command, stream }) =>',
+          '  decoratePrefix: ({ command, stream }) =>',
           "    stream + '/' + command.label.trim() + '| ',",
           '};',
         ].join('\n'),
@@ -334,7 +334,7 @@ describe('[labels] runset tags interleaved output with its command', () => {
           'let line = 0;',
           'module.exports = {',
           "  labels: 'all',",
-          "  formatLabel: () => ++line + ': ',",
+          "  decoratePrefix: () => ++line + ': ',",
           '};',
         ].join('\n'),
       );
@@ -350,7 +350,7 @@ describe('[labels] runset tags interleaved output with its command', () => {
         'runset.config.js',
         [
           'module.exports = {',
-          "  formatLabel: ({ defaultPrefix }) => '> ' + defaultPrefix,",
+          "  decoratePrefix: ({ defaultPrefix }) => '> ' + defaultPrefix,",
           '};',
         ].join('\n'),
       );
@@ -363,11 +363,49 @@ describe('[labels] runset tags interleaved output with its command', () => {
       expect(lines(stdout).toSorted()).toEqual(['> [a] one', '> [b] two']);
     });
 
+    test('it is handed the padded label without color or brackets', async () => {
+      await using dir = await tempDir();
+      await dir.write(
+        'runset.config.js',
+        [
+          'module.exports = {',
+          "  decoratePrefix: ({ plainPrefix }) => plainPrefix + '| ',",
+          '};',
+        ].join('\n'),
+      );
+
+      const { stdout } = await run(
+        ['-p', 'echo one::label=a', 'echo two::label=bb'],
+        dir.path,
+      );
+
+      expect(lines(stdout).toSorted()).toEqual(['a  | one', 'bb | two']);
+    });
+
+    test('a command is handed the width the decorated prefix leaves', async () => {
+      await using dir = await tempDir();
+      await dir.write(
+        'runset.config.js',
+        [
+          'module.exports = {',
+          "  decoratePrefix: ({ defaultPrefix }) => '12:00 ' + defaultPrefix,",
+          '};',
+        ].join('\n'),
+      );
+
+      const { stdout } = await run(
+        ['--wrap', '--labels', 'all', 'node -p process.env.COLUMNS::label=a'],
+        { cwd: dir.path, env: { COLUMNS: '80' } },
+      );
+
+      expect(stdout).toBe('12:00 [a] 70\n');
+    });
+
     test('it is left alone for commands that have no prefix', async () => {
       await using dir = await tempDir();
       await dir.write(
         'runset.config.js',
-        ['module.exports = { formatLabel: () => "X " };'].join('\n'),
+        ['module.exports = { decoratePrefix: () => "X " };'].join('\n'),
       );
 
       const { stdout } = await run('echo one', dir.path);
@@ -379,12 +417,88 @@ describe('[labels] runset tags interleaved output with its command', () => {
       await using dir = await tempDir();
       await dir.write(
         'runset.config.js',
-        ['module.exports = { formatLabel: "nope" };'].join('\n'),
+        ['module.exports = { decoratePrefix: "nope" };'].join('\n'),
       );
 
       const { stderr } = await runWithError('echo one', dir.path);
 
-      expect(stderr).toMatch(/formatLabel must be a function/);
+      expect(stderr).toMatch(/decoratePrefix must be a function/);
+    });
+  });
+
+  describe('transformLabel', () => {
+    /** Commands as the plan settles them; nothing has to run. */
+    function plan(
+      transformLabel: (context: { label: string }) => string | undefined,
+      ...commands: string[]
+    ): Command[] {
+      const runner = Run.fromConfigJs({
+        color: 'none',
+        commands,
+        cwd: fixturePath(),
+        parallel: true,
+        transformLabel,
+      });
+      return runner.processes.map((item) => item.command);
+    }
+
+    function labels(
+      transformLabel: (context: { label: string }) => string | undefined,
+      ...commands: string[]
+    ): string[] {
+      return plan(transformLabel, ...commands).map((command) => command.label);
+    }
+
+    test('renames an automatic label before it is padded', () => {
+      expect(
+        labels(
+          ({ label }) => ({ 'license-verifier': 'lic' })[label],
+          'license-verifier --x',
+          'echo b',
+        ),
+      ).toEqual(['lic ', 'echo']);
+    });
+
+    test('an explicit label wins', () => {
+      expect(labels(() => 'renamed', 'echo a::label=mine', 'node b')).toEqual([
+        'mine   ',
+        'renamed',
+      ]);
+    });
+
+    test('repeats of the new name are numbered apart', () => {
+      expect(labels(() => 'x', 'echo a', 'node b')).toEqual(['x#1', 'x#2']);
+    });
+
+    test('the color follows the new name', () => {
+      const [echo] = plan(
+        ({ label }) => (label === 'echo' ? 'db' : undefined),
+        'echo a',
+        'node b',
+      );
+
+      expect(echo?.bgColor).toBe(wants('db'));
+    });
+
+    test('a blank or multi-line name is refused', () => {
+      expect(() => labels(() => ' ', 'echo a', 'node b')).toThrow(
+        /transformLabel must return/,
+      );
+      expect(() => labels(() => 'a\nb', 'echo a', 'node b')).toThrow(
+        /transformLabel must return/,
+      );
+    });
+
+    test('anything but a function is refused', async () => {
+      await using dir = await tempDir();
+      await dir.write(
+        'runset.config.js',
+        ['module.exports = { transformLabel: "nope" };'].join('\n'),
+      );
+
+      const { stderr } = await runWithError('echo one', dir.path);
+
+      expect(stderr).toMatch(/transformLabel must be a function/);
     });
   });
 

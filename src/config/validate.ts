@@ -34,6 +34,15 @@ export function stringError(name: string, value: unknown): string | undefined {
     : `${name} must be a string, got ${formatValue(value)}.`;
 }
 
+export function functionError(
+  name: string,
+  value: unknown,
+): string | undefined {
+  return value === undefined || typeof value === 'function'
+    ? undefined
+    : `${name} must be a function, got ${formatValue(value)}.`;
+}
+
 export function envError(name: string, value: unknown): string | undefined {
   if (!isPlainObject(value)) {
     return `${name} must be an object.`;

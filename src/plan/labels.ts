@@ -1,5 +1,7 @@
+import { formatValue } from '../config/validate.ts';
 import type { Command } from '../types.ts';
 import { fallbackColor, paletteIndex, PALETTES } from '../utils/colors.ts';
+import { NormalizeError } from '../utils/errors.ts';
 import type { Plan } from './plan.ts';
 import { groupByStage } from './stages.ts';
 
@@ -31,7 +33,11 @@ export function assignAutoLabels({ commands, config }: Plan): void {
       }
 
       if (mode === 'all' || (mode === 'auto' && shared)) {
-        command.label = nameOf(command);
+        const label = nameOf(command);
+        command.label = checkLabel(
+          config.transformLabel?.({ command, label }),
+          label,
+        );
         named.push(command);
       } else if (shared && labeled) {
         command.label = ' ';
@@ -105,6 +111,25 @@ function nameOf(command: Command): string {
     command.scriptName ??
     command.command.split(/\s/, 1)[0] ??
     ''
+  );
+}
+
+/** What `transformLabel` answered, if it is fit to print. */
+function checkLabel(value: unknown, label: string): string {
+  if (value === undefined) {
+    return label;
+  }
+
+  if (
+    typeof value === 'string' &&
+    value.trim() !== '' &&
+    !/\p{Cc}/u.test(value)
+  ) {
+    return value;
+  }
+
+  throw new NormalizeError(
+    `transformLabel must return a non-blank single line or undefined, got ${formatValue(value)}.`,
   );
 }
 
